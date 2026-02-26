@@ -1,0 +1,61 @@
+:root {
+  --apple-bg: #F5F5F7;
+  --apple-card-bg: rgba(255, 255, 255, 0.72);
+  --apple-glass-border: rgba(255, 255, 255, 0.5);
+  --apple-text-primary: #1D1D1F;
+  --apple-text-secondary: #86868B;
+  --apple-blue: #0071E3;
+  --apple-radius: 18px;
+  --apple-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
+  --apple-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+}
+
+/* 深色模式变量 */
+html.dark {
+  --apple-bg: #000000;
+  --apple-card-bg: rgba(28, 28, 30, 0.72);
+  --apple-glass-border: rgba(255, 255, 255, 0.1);
+  --apple-text-primary: #F5F5F7;
+  --apple-text-secondary: #86868B;
+  --apple-blue: #0A84FF;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--apple-font);
+  background-color: var(--apple-bg);
+  color: var(--apple-text-primary);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease;
+}
+
+/* 磨砂玻璃卡片通用类 */
+.glass-card {
+  background: var(--apple-card-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--apple-glass-border);
+  border-radius: var(--apple-radius);
+  box-shadow: var(--apple-shadow);
+}
+
+/* 覆盖 Element Plus 默认样式以符合 Apple 风格 */
+.el-button--primary {
+  background-color: var(--apple-blue) !important;
+  border-color: var(--apple-blue) !important;
+  border-radius: 980px !important; /* 胶囊按钮 */
+  font-weight: 500;
+  padding: 10px 24px;
+}
+
+.el-input__wrapper {
+  border-radius: 12px !important;
+  box-shadow: none !important;
+  background-color: rgba(118, 118, 128, 0.12) !important;
+}
+
+.el-input__wrapper.is-focus {
+  background-color: #fff !important;
+  box-shadow: 0 0 0 2px var(--apple-blue) !important;
+}
