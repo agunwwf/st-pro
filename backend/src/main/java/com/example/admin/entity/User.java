@@ -9,61 +9,43 @@ public class User {
     private String nickname;
     private String avatar;
     private String signature;
+    private String role; // ADMIN or STUDENT
+    private Integer progress;
+    private Integer checkInCount;
+    private Integer isModel;
     private LocalDateTime createTime;
 
-    public Long getId() {
-        return id;
-    }
+    // Getters and Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
 
-    public String getUsername() {
-        return username;
-    }
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
 
-    public void setUsername(String username) {
-        this.username = username;
-    }
+    public String getNickname() { return nickname; }
+    public void setNickname(String nickname) { this.nickname = nickname; }
 
-    public String getPassword() {
-        return password;
-    }
+    public String getAvatar() { return avatar; }
+    public void setAvatar(String avatar) { this.avatar = avatar; }
 
-    public void setPassword(String password) {
-        this.password = password;
-    }
+    public String getSignature() { return signature; }
+    public void setSignature(String signature) { this.signature = signature; }
 
-    public String getNickname() {
-        return nickname;
-    }
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
 
-    public void setNickname(String nickname) {
-        this.nickname = nickname;
-    }
+    public Integer getProgress() { return progress; }
+    public void setProgress(Integer progress) { this.progress = progress; }
 
-    public String getAvatar() {
-        return avatar;
-    }
+    public Integer getCheckInCount() { return checkInCount; }
+    public void setCheckInCount(Integer checkInCount) { this.checkInCount = checkInCount; }
 
-    public void setAvatar(String avatar) {
-        this.avatar = avatar;
-    }
+    public Integer getIsModel() { return isModel; }
+    public void setIsModel(Integer isModel) { this.isModel = isModel; }
 
-    public String getSignature() {
-        return signature;
-    }
-
-    public void setSignature(String signature) {
-        this.signature = signature;
-    }
-
-    public LocalDateTime getCreateTime() {
-        return createTime;
-    }
-
-    public void setCreateTime(LocalDateTime createTime) {
-        this.createTime = createTime;
-    }
+    public LocalDateTime getCreateTime() { return createTime; }
+    public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
 }

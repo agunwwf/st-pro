@@ -2,26 +2,27 @@
   <div class="login-container">
     <div class="glass-card login-box">
       <div class="logo-area">
-        <img src="/favicon.ico" class="app-logo"  alt="aa"/>
+        <img src="/favicon.ico" class="app-logo" />
         <h2>{{ isLogin ? 'Sign in to Apple Admin' : 'Create your Apple ID' }}</h2>
         <p class="subtitle">{{ isLogin ? 'Welcome back, please login to your account.' : 'Get started with your free account today.' }}</p>
       </div>
 
       <el-form :model="form" class="login-form" @submit.prevent>
         <el-form-item>
-          <el-input v-model="form.username" placeholder="Apple ID" :prefix-icon="User" />
+          <el-input v-model="form.username" placeholder="Apple ID" :prefix-icon="User" class="apple-input" />
         </el-form-item>
         <el-form-item>
-          <el-input v-model="form.password" type="password" placeholder="Password" :prefix-icon="Lock" show-password />
+          <el-input v-model="form.password" type="password" placeholder="Password" :prefix-icon="Lock" show-password class="apple-input" />
         </el-form-item>
 
-        <el-button
-          type="primary"
-          class="submit-btn"
-          :loading="loading"
-          native-type="button"
-          @click="handleAuth"
-        >
+        <el-form-item v-if="isLogin">
+          <el-radio-group v-model="form.role" size="large" class="role-selector">
+            <el-radio label="STUDENT">Student</el-radio>
+            <el-radio label="ADMIN">Admin</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-button type="primary" class="submit-btn" :loading="loading" @click="handleAuth">
           {{ isLogin ? 'Sign In' : 'Continue' }}
         </el-button>
       </el-form>
@@ -48,7 +49,7 @@ import axios from 'axios'
 const router = useRouter()
 const isLogin = ref(true)
 const loading = ref(false)
-const form = reactive({ username: '', password: '' })
+const form = reactive({ username: '', password: '', role: 'STUDENT' })
 
 const toggleMode = () => {
   isLogin.value = !isLogin.value
@@ -57,7 +58,7 @@ const toggleMode = () => {
 }
 
 const handleAuth = async () => {
-  if (!form.username || !form.password) return ElMessage.warning('请填写完整账号和密码')
+  if (!form.username || !form.password) return ElMessage.warning('Please fill in all fields')
 
   loading.value = true
   try {
@@ -68,20 +69,20 @@ const handleAuth = async () => {
 
     if (res.data.code === 200) {
       if (isLogin.value) {
-        ElMessage.success('欢迎回来')
+        ElMessage.success('Welcome back')
         localStorage.setItem('token', 'mock-token-' + Date.now())
         localStorage.setItem('user', JSON.stringify(res.data.data))
-        await router.push('/')
+        router.push('/')
       } else {
-        ElMessage.success('注册成功，请使用新账号登录')
+        ElMessage.success('Account created successfully. Please sign in.')
         isLogin.value = true
       }
     } else {
-      ElMessage.error(res.data.msg || '操作失败')
+      ElMessage.error(res.data.msg || 'Operation failed')
     }
   } catch (error) {
     console.error(error)
-    ElMessage.error('网络异常或服务器不可用')
+    ElMessage.error('Network error or server unavailable')
   } finally {
     loading.value = false
   }

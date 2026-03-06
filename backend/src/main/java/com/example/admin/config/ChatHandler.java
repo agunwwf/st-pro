@@ -2,71 +2,93 @@ package com.example.admin.config;
 
 import com.example.admin.entity.Message;
 import com.example.admin.mapper.MessageMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ChatHandler extends TextWebSocketHandler {
 
-    @Autowired
-    private MessageMapper messageMapper;
+    // username -> session（简化：每个用户名保留最近一次连接）
+    private static final Map<String, WebSocketSession> USER_SESSIONS = new ConcurrentHashMap<>();
 
-    private static final Map<String, WebSocketSession> userSessions = new ConcurrentHashMap<>();
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    private final MessageMapper messageMapper;
+
+    public ChatHandler(MessageMapper messageMapper) {
+        this.messageMapper = messageMapper;
+    }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        // 连接建立
+        System.out.println("New connection: " + session.getId());
     }
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
-        Map<String, Object> msgMap = objectMapper.readValue(payload, Map.class);
 
-        String type = (String) msgMap.get("type");
-        String fromUser = (String) msgMap.get("from");
+        // 解析消息：auth 绑定 session；message 持久化并定向转发
+        try {
+            JsonNode root = OBJECT_MAPPER.readTree(payload);
+            String type = root.path("type").asText();
 
-        // 1. 绑定 Session
-        if (fromUser != null) {
-            userSessions.put(fromUser, session);
-        }
-
-        if ("message".equals(type)) {
-            String toUser = (String) msgMap.get("to");
-            String content = (String) msgMap.get("content");
-
-            // 2. 保存到数据库 (持久化)
-            Message dbMsg = new Message();
-            dbMsg.setFromUser(fromUser);
-            dbMsg.setToUser(toUser);
-            dbMsg.setContent(content);
-            dbMsg.setMsgType("text");
-            dbMsg.setCreateTime(LocalDateTime.now());
-            try {
-                if (messageMapper != null) {
-                    messageMapper.insert(dbMsg);
+            if ("auth".equals(type)) {
+                String username = root.path("from").asText(null);
+                if (username != null && !username.trim().isEmpty()) {
+                    USER_SESSIONS.put(username.trim(), session);
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
+                return;
             }
 
-            // 3. 转发给接收者
-            WebSocketSession targetSession = userSessions.get(toUser);
-            if (targetSession != null && targetSession.isOpen()) {
-                targetSession.sendMessage(message);
+            if ("message".equals(type)) {
+                Message msg = new Message();
+                msg.setFromUser(root.path("from").asText(null));
+                msg.setToUser(root.path("to").asText(null));
+                msg.setContent(root.path("content").asText(null));
+                msg.setMsgType(root.path("msgType").asText("text"));
+
+                JsonNode fileNameNode = root.path("fileName");
+                if (!fileNameNode.isMissingNode() && !fileNameNode.isNull()) {
+                    msg.setFileName(fileNameNode.asText());
+                }
+
+                msg.setCreateTime(LocalDateTime.now());
+
+                // 保存到数据库，供刷新页面后读取历史记录
+                if (msg.getFromUser() != null && msg.getToUser() != null && msg.getContent() != null) {
+                    messageMapper.insert(msg);
+                }
+
+                // 定向发送给接收方（如果在线）
+                WebSocketSession toSession = USER_SESSIONS.get(msg.getToUser());
+                if (toSession != null && toSession.isOpen()) {
+                    toSession.sendMessage(message);
+                }
+                // 也回送给发送方（多端登录时确保同步）
+                WebSocketSession fromSession = USER_SESSIONS.get(msg.getFromUser());
+                if (fromSession != null && fromSession.isOpen() && fromSession != toSession) {
+                    fromSession.sendMessage(message);
+                }
+                return;
             }
+        } catch (Exception e) {
+            // 解析或保存失败不影响 WebSocket 正常转发
+            e.printStackTrace();
         }
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, org.springframework.web.socket.CloseStatus status) throws Exception {
-        userSessions.values().remove(session);
+        // 清理映射
+        USER_SESSIONS.entrySet().removeIf(e -> e.getValue() == session);
+        System.out.println("Connection closed: " + session.getId());
     }
 }

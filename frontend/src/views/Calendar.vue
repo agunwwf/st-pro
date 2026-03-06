@@ -36,8 +36,19 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import axios from 'axios'
 
-const STORAGE_KEY = 'checkin-records'
+// 当前登录用户
+let currentUser = null
+try {
+  const rawUser = localStorage.getItem('user')
+  currentUser = rawUser ? JSON.parse(rawUser) : null
+} catch {
+  currentUser = null
+}
+
+// 每个用户单独存一份打卡记录，避免不同账号互相覆盖
+const STORAGE_KEY = currentUser && currentUser.id ? `checkin-records:${currentUser.id}` : 'checkin-records:guest'
 
 const currentDate = ref(new Date())
 const statusMap = ref(loadRecords())
@@ -115,6 +126,36 @@ const stats = computed(() => {
   return { success, miss }
 })
 
+// 计算本年度已打卡天数
+function getYearSuccessCount() {
+  const now = new Date()
+  const year = now.getFullYear()
+  let count = 0
+  for (const [key, value] of Object.entries(statusMap.value)) {
+    if (value === 'success' && key.startsWith(String(year))) {
+      count++
+    }
+  }
+  return count
+}
+
+// 首次进入页面时，同步一次已有的年度打卡天数到后台
+async function syncCheckinToServer() {
+  if (!(currentUser && currentUser.id)) return
+  const count = getYearSuccessCount()
+  try {
+    await axios.post('http://localhost:8080/api/user/checkin', {
+      id: currentUser.id,
+      count
+    })
+  } catch (e) {
+    console.error('同步打卡次数失败', e)
+  }
+}
+
+// 进入日历页面就做一次同步（把之前已经打过的卡汇总给后台）
+syncCheckinToServer()
+
 watch(currentDate, () => {
   autoFillMissForPastDays()
 })
@@ -131,7 +172,7 @@ function cellClasses(data) {
   }
 }
 
-function handleClickDate(data) {
+async function handleClickDate(data) {
   const key = getKey(data.day)
   const today = getTodayKey()
   const cmp = compareDay(key, today)
@@ -157,8 +198,20 @@ function handleClickDate(data) {
     return
   }
 
+  // 本地标记成功
   statusMap.value[key] = 'success'
   persistRecords()
+
+  // 如果已登录，则通知后端累计打卡次数
+  if (currentUser && currentUser.id) {
+    try {
+      const count = getYearSuccessCount()
+      await axios.post('http://localhost:8080/api/user/checkin', { id: currentUser.id, count })
+    } catch (e) {
+      console.error('上报打卡次数失败', e)
+    }
+  }
+
   ElMessage.success('打卡成功')
 }
 </script>
