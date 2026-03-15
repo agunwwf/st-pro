@@ -121,9 +121,9 @@ const toggleProjectsMenu = () => {
 }
 
 // 点击子菜单项后关闭子菜单
-const closeSubmenu = () => {
-  projectsMenuOpen.value = false
-}
+// const closeSubmenu = () => {
+//   projectsMenuOpen.value = false
+// }
 
 // 监听侧边栏折叠状态，如果折叠则关闭子菜单
 watch(isCollapse, (newVal) => {
