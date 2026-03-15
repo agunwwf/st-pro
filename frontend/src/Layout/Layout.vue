@@ -13,10 +13,38 @@
           <el-icon><Odometer /></el-icon>
           <span v-if="!isCollapse">Dashboard</span>
         </router-link>
-        <router-link to="/projects" class="nav-item" active-class="active">
+
+        <!-- Projects 改为有子菜单的结构 -->
+        <div class="nav-item projects-menu" :class="{ 'menu-open': projectsMenuOpen }" @click="toggleProjectsMenu">
           <el-icon><Folder /></el-icon>
           <span v-if="!isCollapse">Projects</span>
-        </router-link>
+          <el-icon v-if="!isCollapse" class="menu-arrow" :class="{ 'rotated': projectsMenuOpen }">
+            <ArrowDown />
+          </el-icon>
+        </div>
+
+        <!-- Projects 子菜单 -->
+        <div v-if="projectsMenuOpen && !isCollapse" class="submenu">
+          <router-link to="/projects" class="submenu-item" active-class="active" @click="closeSubmenu">
+            项目总览
+          </router-link>
+          <router-link to="/projects/bayes-text-classification" class="submenu-item" active-class="active" @click="closeSubmenu">
+            K-means Teaching Platform
+          </router-link>
+          <router-link to="/projects/wine-clustering" class="submenu-item" active-class="active" @click="closeSubmenu">
+            逻辑回归交互式学习平台
+          </router-link>
+          <router-link to="/projects/diabetes-analysis" class="submenu-item" active-class="active" @click="closeSubmenu">
+            神经网络交互式学习平台
+          </router-link>
+          <router-link to="/projects/breast-cancer-prediction" class="submenu-item" active-class="active" @click="closeSubmenu">
+            线性回归交互式学习平台
+          </router-link>
+          <router-link to="/projects/california-housing" class="submenu-item" active-class="active" @click="closeSubmenu">
+            文本分析与分类交互式学习平台
+          </router-link>
+        </div>
+
         <router-link to="/chat" class="nav-item" active-class="active">
           <el-icon><ChatRound /></el-icon>
           <span v-if="!isCollapse">Messages</span>
@@ -68,10 +96,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDark, useToggle } from '@vueuse/core'
-import { Odometer, Folder, ChatRound, Calendar, Moon, Sunny, SwitchButton, Menu, Monitor } from '@element-plus/icons-vue'
+import { Odometer, Folder, ChatRound, Calendar, Moon, Sunny, SwitchButton, Menu, Monitor, ArrowDown } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -79,9 +107,43 @@ const isCollapse = ref(false)
 const isDark = useDark()
 const toggleDark = useToggle(isDark)
 
+// 控制 Projects 子菜单的展开状态
+const projectsMenuOpen = ref(false)
+
+// 切换 Projects 子菜单
+const toggleProjectsMenu = () => {
+  if (!isCollapse.value) {
+    projectsMenuOpen.value = !projectsMenuOpen.value
+  } else {
+    // 在折叠状态下点击 Projects，跳转到项目总览
+    router.push('/projects')
+  }
+}
+
+// 点击子菜单项后关闭子菜单
+const closeSubmenu = () => {
+  projectsMenuOpen.value = false
+}
+
+// 监听侧边栏折叠状态，如果折叠则关闭子菜单
+watch(isCollapse, (newVal) => {
+  if (newVal) {
+    projectsMenuOpen.value = false
+  }
+})
+
+// 监听路由变化，如果离开项目相关页面，关闭子菜单
+watch(() => route.path, (newPath) => {
+  if (!newPath.startsWith('/projects')) {
+    projectsMenuOpen.value = false
+  }
+})
+
 const userAvatar = ref('https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png')
 const userName = ref('User')
 const userRole = ref('STUDENT')
+
+// ... 其他原有代码保持不变 ...
 
 function pad2(n) {
   return String(n).padStart(2, '0')
@@ -170,7 +232,7 @@ function startStudyTimers() {
 
   const canCountNow = () => document.visibilityState === 'visible'
 
-  // 每秒计时（只有页面处于可见状态才算“在线学习”）
+  // 每秒计时（只有页面处于可见状态才算"在线学习"）
   studyTickTimer = setInterval(() => {
     if (!canCountNow()) return
     studyState.seconds += 1
@@ -276,6 +338,7 @@ onUnmounted(() => {
     width: 80px;
     .nav-item span, .user-info, .actions { display: none; }
     .nav-item { justify-content: center; padding: 0; }
+    .submenu { display: none; }
   }
 
   .sidebar-header {
@@ -310,11 +373,71 @@ onUnmounted(() => {
     font-weight: 500;
     transition: all 0.2s;
     height: 44px;
+    cursor: pointer;
+    position: relative;
 
-    .el-icon { font-size: 20px; margin-right: 12px; }
+    .el-icon {
+      font-size: 20px;
+      margin-right: 12px;
+    }
 
-    &:hover { background: rgba(0,0,0,0.05); color: var(--apple-text-primary); }
-    &.active { background: var(--apple-blue); color: white; }
+    .menu-arrow {
+      margin-left: auto;
+      transition: transform 0.3s ease;
+      font-size: 16px;
+    }
+
+    .menu-arrow.rotated {
+      transform: rotate(180deg);
+    }
+
+    &:hover {
+      background: rgba(0,0,0,0.05);
+      color: var(--apple-text-primary);
+    }
+
+    &.active {
+      background: var(--apple-blue);
+      color: white;
+    }
+
+    &.projects-menu.menu-open {
+      background: rgba(0,0,0,0.05);
+      color: var(--apple-text-primary);
+    }
+  }
+
+  /* 子菜单样式 */
+  .submenu {
+    display: flex;
+    flex-direction: column;
+    margin-left: 20px;
+    border-left: 2px solid rgba(0,0,0,0.1);
+    padding-left: 10px;
+    margin-bottom: 8px;
+  }
+
+  .submenu-item {
+    display: block;
+    padding: 8px 12px;
+    border-radius: 8px;
+    color: var(--apple-text-secondary);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 400;
+    transition: all 0.2s;
+    margin-bottom: 4px;
+
+    &:hover {
+      background: rgba(0,0,0,0.05);
+      color: var(--apple-text-primary);
+    }
+
+    &.active {
+      background: rgba(0, 122, 255, 0.1);
+      color: var(--apple-blue);
+      font-weight: 500;
+    }
   }
 
   .sidebar-footer {

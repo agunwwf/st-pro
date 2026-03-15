@@ -2,7 +2,14 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Layout from '../layout/Layout.vue'
 import NProgress from 'nprogress'
 import 'nprogress/nprogress.css'
-import {ElMessage} from "element-plus";
+import {ElMessage} from "element-plus"
+
+// 导入新的项目组件
+import BayesTextClassification from '../views/BayesTextClassification.vue'
+import WineClustering from '../views/WineClustering.vue'
+import DiabetesAnalysis from '../views/DiabetesAnalysis.vue'
+import BreastCancerPrediction from '../views/BreastCancerPrediction.vue'
+import CaliforniaHousing from '../views/CaliforniaHousing.vue';
 
 const routes = [
   {
@@ -51,7 +58,59 @@ const routes = [
         name: 'Profile',
         component: () => import('../views/Profile.vue'),
         meta: { title: 'Profile', requiresAuth: true }
-      }
+      },
+      // ========== 新增的五个项目路由 ==========
+      {
+        path: '/projects/bayes-text-classification',
+        name: 'K-means Teaching Platform',
+        component: BayesTextClassification,
+        meta: {
+          requiresAuth: true,
+          title: 'K-means Teaching Platform',
+          category: 'project'
+        }
+      },
+      {
+        path: '/projects/wine-clustering',
+        name: '逻辑回归交互式学习平台',
+        component: WineClustering,
+        meta: {
+          requiresAuth: true,
+          title: '逻辑回归交互式学习平台',
+          category: 'project'
+        }
+      },
+      {
+        path: '/projects/diabetes-analysis',
+        name: '神经网络交互式学习平台',
+        component: DiabetesAnalysis,
+        meta: {
+          requiresAuth: true,
+          title: '神经网络交互式学习平台',
+          category: 'project'
+        }
+      },
+      {
+        path: '/projects/breast-cancer-prediction',
+        name: '线性回归交互式学习平台',
+        component: BreastCancerPrediction,
+        meta: {
+          requiresAuth: true,
+          title: '线性回归交互式学习平台',
+          category: 'project'
+        }
+      },
+      {
+        path: '/projects/california-housing',
+        name: '文本分析与分类交互式学习平台',
+        component: CaliforniaHousing,
+        meta: {
+          requiresAuth: true,
+          title: '文本分析与分类交互式学习平台',
+          category: 'project'
+        }
+      },
+      // =====================================
     ]
   },
   {
