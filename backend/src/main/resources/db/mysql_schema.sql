@@ -68,3 +68,30 @@ CREATE TABLE IF NOT EXISTS `sys_user` (
                                           PRIMARY KEY (`id`),
                                           UNIQUE KEY `uk_username` (`username`)
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+-- 论坛帖子主表
+CREATE TABLE IF NOT EXISTS `sys_forum_post` (
+                                                `id` bigint NOT NULL AUTO_INCREMENT,
+                                                `user_id` bigint NOT NULL COMMENT '作者ID (关联sys_user.id)',
+                                                `title` varchar(100) NOT NULL COMMENT '标题',
+                                                `content` text NOT NULL COMMENT '正文',
+                                                `section` varchar(20) NOT NULL COMMENT '板块: knowledge/q-a/help/notes',
+                                                `cover` varchar(255) DEFAULT NULL COMMENT '封面图URL',
+                                                `votes` int DEFAULT '0' COMMENT '点赞数',
+                                                `stars` int DEFAULT '0' COMMENT '收藏数',
+                                                `comments` int DEFAULT '0' COMMENT '评论数',
+                                                `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+                                                PRIMARY KEY (`id`),
+                                                KEY `idx_user_id` (`user_id`),
+                                                KEY `idx_section` (`section`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+CREATE TABLE IF NOT EXISTS `sys_forum_action` (
+                                                  `id` bigint NOT NULL AUTO_INCREMENT,
+                                                  `user_id` bigint NOT NULL,
+                                                  `post_id` bigint NOT NULL,
+                                                  `action_type` varchar(10) NOT NULL COMMENT 'vote/star',
+                                                  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+                                                  PRIMARY KEY (`id`),
+                                                  UNIQUE KEY `uk_user_post_action` (`user_id`, `post_id`, `action_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

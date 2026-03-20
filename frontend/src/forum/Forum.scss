@@ -1,0 +1,455 @@
+/* Forum Section A Styles */
+.section-a-content {
+  width: 100%;
+  max-width: 1600px;
+  padding: 0 40px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.section-header-info {
+  margin-bottom: 40px;
+  text-align: left;
+
+  .section-display-title {
+    font-size: 48px;
+    font-weight: 800;
+    color: #1d1d1f;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+  }
+
+  .section-display-desc {
+    font-size: 20px;
+    color: #86868b;
+    font-weight: 500;
+  }
+}
+
+.cards-grid {
+  display: grid;
+  /* 默认 5 列 */
+  grid-template-columns: repeat(5, 1fr);
+  gap: 24px;
+  width: 100%;
+}
+
+/* 实时帖子卡片样式 */
+.real-post-card {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  padding: 0;
+  display: block;
+  text-align: left;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+
+  .card-inner {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .card-cover-wrapper {
+    width: 100%;
+    height: 160px;
+    overflow: hidden;
+
+    .card-cover-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.5s ease;
+    }
+  }
+
+  &:hover .card-cover-img {
+    transform: scale(1.05);
+  }
+
+  .card-content-padding {
+    padding: 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .topic-tag {
+    background-color: #eef2ff;
+    border-color: #c7d2fe;
+    color: #4f46e5;
+    font-weight: 600;
+  }
+
+  .card-title {
+    font-size: 20px;
+    line-height: 1.3;
+    margin: 12px 0 10px;
+    color: #1d1d1f;
+    font-weight: 700;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .card-body {
+    flex: 1;
+    .card-text {
+      font-size: 15px;
+      line-height: 1.5;
+      color: #515154;
+
+      .author-name {
+        font-weight: 600;
+        color: #1d1d1f;
+      }
+
+      .read-more-link {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: #0066cc;
+        font-size: 14px;
+        margin-top: 8px;
+        font-weight: 500;
+      }
+    }
+  }
+
+  .card-footer-actions {
+    margin-top: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .vote-actions {
+      .vote-btn-group {
+        display: flex;
+        background: #f5f5f7;
+        border-radius: 8px;
+        overflow: hidden;
+
+        .vote-btn {
+          padding: 6px 12px;
+          font-size: 13px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+
+          &.up {
+            color: #0066cc;
+            border-right: 1px solid rgba(0,0,0,0.05);
+          }
+          &.down {
+            color: #86868b;
+          }
+        }
+      }
+    }
+
+    .social-actions {
+      display: flex;
+      gap: 12px;
+      color: #86868b;
+      font-size: 13px;
+
+      .action-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+    }
+  }
+}
+
+/* 响应式调整列数 */
+@media (max-width: 1400px) {
+  .cards-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 1100px) {
+  .cards-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 800px) {
+  .cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 500px) {
+  .cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.forum-card {
+  aspect-ratio: 4 / 5;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* 上浮动画效果 */
+  &:hover {
+    transform: translateY(-12px);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+
+  /* 内部占位符样式 */
+  .card-placeholder {
+    font-size: 24px;
+    font-weight: 300;
+    opacity: 0.2;
+    letter-spacing: 2px;
+  }
+
+  /* 机器学习卡片 - 可爱且高级风格 */
+  &.machine-learning-card {
+    background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+    border: 1px solid rgba(0, 0, 0, 0.03);
+    padding: 24px;
+    display: block; // 取消 flex 居中，使用标准流布局
+    text-align: left;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+
+    &:hover {
+      background: linear-gradient(135deg, #ffffff 0%, #f5f7f8 100%);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+      border-color: rgba(0, 0, 0, 0.08);
+    }
+
+    .card-inner {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .topic-tag {
+      background-color: #eef2ff;
+      border-color: #c7d2fe;
+      color: #4f46e5;
+      font-weight: 600;
+      padding: 4px 12px;
+    }
+
+    .card-title {
+      font-size: 22px;
+      line-height: 1.3;
+      margin: 16px 0 14px;
+      color: #1d1d1f;
+      font-weight: 800;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .card-body {
+      flex: 1;
+      .card-text {
+        font-size: 16px;
+        line-height: 1.6;
+        color: #333336;
+        font-weight: 500;
+
+        .author-name {
+          font-weight: 700;
+          color: #1d1d1f;
+        }
+
+        .read-more-link {
+          display: block;
+          margin-top: 10px;
+          color: #0066cc;
+          font-size: 15px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          cursor: pointer;
+          &:hover { text-decoration: underline; }
+        }
+      }
+    }
+
+    .card-footer-actions {
+      margin-top: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      .vote-actions {
+        .vote-btn-group {
+          display: flex;
+          background: #f5f5f7;
+          border-radius: 10px;
+          overflow: hidden;
+
+          .vote-btn {
+            padding: 8px 14px;
+            font-size: 14px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: background 0.2s;
+
+            &.up {
+              color: #0066cc;
+              border-right: 1px solid rgba(0,0,0,0.05);
+              &:hover { background: #e8e8ed; }
+            }
+            &.down {
+              color: #86868b;
+              &:hover { background: #e8e8ed; }
+            }
+          }
+        }
+      }
+
+      .social-actions {
+        display: flex;
+        gap: 20px;
+        color: #515154;
+        font-size: 14px;
+        font-weight: 600;
+
+        .action-item {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          cursor: pointer;
+          transition: color 0.2s;
+          &:hover { color: #1d1d1f; }
+        }
+      }
+    }
+  }
+}
+
+/* 深色模式适配 */
+.dark {
+  .section-header-info {
+    .section-display-title { color: #ffffff; }
+    .section-display-desc { color: rgba(255, 255, 255, 0.5); }
+  }
+
+  .forum-card {
+    &.real-post-card {
+      background: #1c1c1e;
+      border-color: rgba(255, 255, 255, 0.05);
+
+      .card-title { color: #ffffff; }
+      .card-text { color: rgba(255, 255, 255, 0.7); .author-name { color: #ffffff; } }
+
+      .card-footer-actions {
+        .vote-actions .vote-btn-group {
+          background: rgba(255, 255, 255, 0.05);
+          .vote-btn {
+            &.up { color: #409eff; border-right-color: rgba(255,255,255,0.1); }
+            &.down { color: rgba(255,255,255,0.4); }
+          }
+        }
+        .social-actions { color: rgba(255, 255, 255, 0.4); }
+      }
+    }
+
+    &.machine-learning-card {
+      background: linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 100%);
+
+      .topic-tag {
+        background-color: rgba(79, 70, 229, 0.2);
+        border-color: rgba(199, 210, 254, 0.2);
+        color: #818cf8;
+      }
+
+      .card-title { color: #ffffff; }
+      .card-text { color: rgba(255, 255, 255, 0.7); .author-name { color: #ffffff; } }
+      .read-more-link { color: #409eff; }
+
+      .card-footer-actions {
+        .vote-actions .vote-btn-group {
+          background: rgba(255, 255, 255, 0.05);
+          .vote-btn {
+            &.up { color: #409eff; border-right-color: rgba(255,255,255,0.1); }
+            &.down { color: rgba(255,255,255,0.4); }
+            &:hover { background: rgba(255, 255, 255, 0.1); }
+          }
+        }
+        .social-actions {
+          color: rgba(255, 255, 255, 0.4);
+          .action-item:hover { color: #ffffff; }
+        }
+      }
+    }
+
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .card-placeholder {
+      color: #ffffff;
+    }
+  }
+
+  .view-more-container .view-more-btn {
+    color: rgba(255, 255, 255, 0.6);
+    &:hover {
+      color: #ffffff;
+    }
+  }
+}
+
+.view-more-container {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 16px;
+
+  .view-more-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #86868b;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+
+    &:hover {
+      color: #1d1d1f;
+      transform: translateX(4px);
+    }
+
+    .arrow-icon {
+      font-size: 16px;
+    }
+  }
+}

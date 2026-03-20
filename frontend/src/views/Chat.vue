@@ -240,7 +240,7 @@ const initData = async () => {
     await loadRequests()
     connectWebSocket()
 
-    // 自动恢复上次聊天对象（解决切换页面回来消息“消失”）
+
     const targetUsername = route.query.target || localStorage.getItem('chat_active_friend')
     if (targetUsername) {
       const target = friends.value.find(f => f.friendUsername === targetUsername)

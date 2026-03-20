@@ -10,6 +10,7 @@ import WineClustering from '../views/WineClustering.vue'
 import DiabetesAnalysis from '../views/DiabetesAnalysis.vue'
 import BreastCancerPrediction from '../views/BreastCancerPrediction.vue'
 import CaliforniaHousing from '../views/CaliforniaHousing.vue';
+import Forum from "@/forum/Forum.vue";
 
 const routes = [
   {
@@ -17,6 +18,17 @@ const routes = [
     name: 'Login',
     component: () => import('../views/Login.vue'),
     meta: { title: 'Sign In - Apple Admin', guest: true }
+  },
+  {
+    path: '/forum',
+    name: 'Forum',
+    component: Forum,
+  },
+  {
+    path: '/forum/create',
+    name: 'CreatePost',
+    component: () => import('../forum/CreatePost.vue'),
+    meta: { title: '写文章 - Forum', requiresAuth: true }
   },
   {
     path: '/',
@@ -113,6 +125,7 @@ const routes = [
       // =====================================
     ]
   },
+
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',

@@ -58,6 +58,11 @@
           <el-icon><Calendar /></el-icon>
           <span v-if="!isCollapse">Calendar</span>
         </router-link>
+
+        <router-link :to="{ name: 'Forum' }" class="nav-item">
+          <el-icon><Search /></el-icon>
+          <span v-if="!isCollapse">COLUMN</span>
+        </router-link>
       </nav>
 
       <div class="sidebar-footer">
@@ -74,6 +79,10 @@
         </div>
       </div>
     </aside>
+
+
+
+
 
     <!-- 主内容区 -->
     <main class="main-content">
@@ -99,7 +108,19 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDark, useToggle } from '@vueuse/core'
-import { Odometer, Folder, ChatRound, Calendar, Moon, Sunny, SwitchButton, Menu, Monitor, ArrowDown } from '@element-plus/icons-vue'
+import {
+  Odometer,
+  Folder,
+  ChatRound,
+  Calendar,
+  Moon,
+  Sunny,
+  SwitchButton,
+  Menu,
+  Monitor,
+  ArrowDown,
+  Edit, Search
+} from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -143,7 +164,7 @@ const userAvatar = ref('https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e
 const userName = ref('User')
 const userRole = ref('STUDENT')
 
-// ... 其他原有代码保持不变 ...
+
 
 function pad2(n) {
   return String(n).padStart(2, '0')

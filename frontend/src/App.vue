@@ -1,7 +1,15 @@
-<script setup></script>
-
 <template>
-  <RouterView />
+    <router-view />
 </template>
 
-<style scoped></style>
+<script setup>
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
+
+</script>
+
+<style>
+
+</style>

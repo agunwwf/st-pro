@@ -15,7 +15,7 @@ public class Friend {
     private String friendNickname;
     private String friendAvatar;
 
-    // 手动补充 getter/setter，避免构建时依赖 Lombok 注解处理
+
 
     public Long getId() {
         return id;

@@ -2,10 +2,12 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
 import './assets/main.scss'
+import { registerMicroApps, start } from 'qiankun'
 
 // 引入 Element Plus 及其样式
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
+
 
 const app = createApp(App)
 
