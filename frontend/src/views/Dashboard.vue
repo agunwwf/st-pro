@@ -94,7 +94,8 @@
 import { ref, onMounted, onUnmounted, computed, reactive } from 'vue'
 import { Timer, Checked, Star, Reading } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import axios from 'axios'
+import request from '@/utils/request'
+window.axios = request
 
 const user = ref({})
 const threadList = ref([])
@@ -179,7 +180,7 @@ async function syncYearCheckinCountToServer() {
   const records = loadCheckinRecords(user.value.id)
   const count = getYearSuccessCount(records)
   try {
-    await axios.post('http://localhost:8080/api/user/checkin', { id: user.value.id, count })
+    await axios.post('http://localhost:8080/api/user/checkin', { count })
   } catch (e) {
     console.error('同步打卡天数失败', e)
   }

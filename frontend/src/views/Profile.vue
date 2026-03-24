@@ -66,9 +66,11 @@
 import { reactive, ref, onMounted, nextTick, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Picture } from '@element-plus/icons-vue'
-import axios from 'axios'
+
 import Cropper from 'cropperjs'
 import 'cropperjs/dist/cropper.css'
+import request from '@/utils/request'
+window.axios = request
 
 const form = reactive({
   id: null,
@@ -149,6 +151,7 @@ const save = async () => {
   saving.value = true
   try {
     const fullUrl = 'http://localhost:8080/api/user/update'
+
     await axios.post(fullUrl, form)
 
     // 更新本地存储

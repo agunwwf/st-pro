@@ -82,7 +82,8 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, ChatLineRound, StarFilled, ChatDotRound, Delete } from '@element-plus/icons-vue'
-import axios from 'axios'
+import request from '@/utils/request'
+window.axios = request
 
 const router = useRouter()
 const students = ref([])

@@ -1,36 +1,43 @@
 <template>
   <div class="project-page">
-    <div class="project-content">
-      <h1>线性回归交互式学习平台</h1>
-      <p>利用线性回归交互式学习平台。</p>
-      <div class="placeholder-content">
-        <p>页面内容正在开发中...</p>
-        <!-- 这里可以放置预测分析的UI组件 -->
-      </div>
-    </div>
+    
+    <iframe class="project-frame" :src="runtimeUrl" title="线性回归交互式学习平台" />
   </div>
 </template>
 
 <script setup>
-// 未来可以在这里添加预测分析的逻辑
+const host = (import.meta.env.VITE_ST_HOST || 'http://localhost').replace(/\/$/, '')
+const prefix = (import.meta.env.VITE_ST_PREFIX || '').replace(/\/$/, '')
+const baseUrl = prefix ? `${host}${prefix}/8501` : `${host}:8501`
+const runtimeUrl = `${baseUrl}?project=linear`
 </script>
 
 <style scoped>
 .project-page {
-  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 130px);
 }
 
-.project-content {
-  max-width: 1200px;
-  margin: 0 auto;
+.project-header {
+  margin-bottom: 10px;
 }
 
-.placeholder-content {
-  margin-top: 30px;
-  padding: 20px;
-  background-color: #f5f5f5;
-  border-radius: 8px;
-  text-align: center;
+.project-header h1 {
+  font-size: 1.35rem;
+  margin: 0 0 4px 0;
+}
+
+.project-header p {
+  margin: 0;
   color: #666;
+}
+
+.project-frame {
+  flex: 1;
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  background: #fff;
 }
 </style>

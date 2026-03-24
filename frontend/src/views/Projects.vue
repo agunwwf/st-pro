@@ -36,7 +36,22 @@
             <div class="project-card__content">
               <h3 class="project-card__title">{{ item.title }}</h3>
               <p class="project-card__description">{{ item.description }}</p>
-              <a :href="item.link" target="_blank" class="project-card__link">查看详情 &rarr;</a>
+              <router-link
+                v-if="item.category === 'project'"
+                :to="item.route"
+                class="project-card__link"
+              >
+                查看详情 &rarr;
+              </router-link>
+              <a
+                v-else
+                :href="item.link"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="project-card__link"
+              >
+                查看详情 &rarr;
+              </a>
             </div>
           </div>
         </div>
@@ -56,35 +71,40 @@ const projects = [
     description: 'KMeans聚类交互式学习平台。最常用的无监督学习算法之一是Kmeans，用于聚类。',
     image: '/images/abm48.png',
     link: 'https://kmeans--project.streamlit.app/',
-    category: 'project'
+    category: 'project',
+    route: '/projects/bayes-text-classification'
   },
   {
     title: '逻辑回归交互式学习平台',
     description: '逻辑回归是一种经典的统计学习方法，主要用于解决分类问题，尤其在二分类场景中应用广泛',
     image: '/images/tsh.png',
     link: 'https://logistic-regression-project.streamlit.app/',
-    category: 'project'
+    category: 'project',
+    route: '/projects/wine-clustering'
   },
   {
     title: '神经网络交互式学习平台',
     description: '神经网络算法通过模拟人脑处理信息的方式，对输入数据进行学习和建模。',
     image: '/images/project_toolkit.png',
     link: 'https://neural-network-project.streamlit.app/',
-    category: 'project'
+    category: 'project',
+    route: '/projects/diabetes-analysis'
   },
   {
     title: '线性回归交互式学习平台',
     description: '线性回归就是帮你从一堆杂乱数据中，找到这条“最贴合”的直线（或超平面）的数学方法。',
     image: '/images/screenshot.png',
     link: 'https://linear--project.streamlit.app/',
-    category: 'project'
+    category: 'project',
+    route: '/projects/breast-cancer-prediction'
   },
   {
     title: '文本分析与分类交互式学习平台',
     description: '文本分析是从非结构化文本数据中提取有价值信息的过程',
     image: '/images/time-frequency-analysis.jpg',
     link: 'https://text--analysis.streamlit.app/',
-    category: 'project'
+    category: 'project',
+    route: '/projects/california-housing'
   },
   {
     title: '复分析讲义',

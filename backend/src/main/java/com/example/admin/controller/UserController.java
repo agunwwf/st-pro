@@ -4,6 +4,8 @@ import com.example.admin.entity.User;
 import com.example.admin.mapper.UserMapper;
 import com.example.admin.mapper.CheckInMapper;
 import com.example.admin.service.UserService;
+import com.example.admin.util.JwtUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -20,6 +22,9 @@ public class UserController {
     private UserMapper userMapper;
 
     @Autowired
+    private JwtUtil jwtUtil;
+
+    @Autowired
     private CheckInMapper checkInMapper;
 
     @PostMapping("/login")
@@ -31,7 +36,20 @@ public class UserController {
         if (user.getRole() != null && !dbUser.getRole().equals(user.getRole())) {
             return Result.error("角色权限不匹配");
         }
-        return Result.success(dbUser);
+        String token =
+                jwtUtil.generateToken(
+                        dbUser.getId(),          // 来自 sys_user.id
+                        dbUser.getUsername()
+                );
+
+        java.util.Map<String,Object> map =
+                new java.util.HashMap<>();
+
+        map.put("token",token);
+        map.put("user",dbUser);   // 要返回的用户信息
+
+        return Result.success(map);
+
     }
 
     @PostMapping("/register")
@@ -62,22 +80,39 @@ public class UserController {
     }
 
     @PostMapping("/checkin")
-    public Result checkIn(@RequestBody java.util.Map<String, Object> params) {
-        Long id = Long.valueOf(params.get("userId").toString());
-        String date = params.get("date").toString();
-        checkInMapper.insert(id, date);
-        return Result.success("Check-in successful");
+    public Result checkIn(HttpServletRequest req, @RequestBody java.util.Map<String, Object> params) {
+        Long id = (Long) req.getAttribute("userId");
+        if (params.containsKey("date")) {
+            String date = params.get("date").toString();
+            checkInMapper.insert(id, date);
+            return Result.success("Check-in successful");
+        }
+        if (params.containsKey("count")) {
+            Integer count = params.get("count") instanceof Number
+                    ? ((Number) params.get("count")).intValue() : Integer.parseInt(params.get("count").toString());
+            userService.checkIn(id, count);
+            return Result.success("打卡成功");
+        }
+        return Result.error("参数错误");
     }
 
     @GetMapping("/checkin/dates")
-    public Result<List<String>> getCheckInDates(@RequestParam Long userId) {
-        return Result.success(checkInMapper.getCheckInDates(userId));
+    public Result<List<String>> getCheckInDates(HttpServletRequest req, @RequestParam(required = false) Long userId) {
+        Long id = userId != null ? userId : (Long) req.getAttribute("userId");
+        if (!id.equals(req.getAttribute("userId"))) {
+            return Result.error("无权查询他人打卡记录");
+        }
+        return Result.success(checkInMapper.getCheckInDates(id));
     }
 
     @GetMapping("/streak")
-    public Result<Integer> getStreak(@RequestParam Long userId) {
+    public Result<Integer> getStreak(HttpServletRequest req, @RequestParam(required = false) Long userId) {
+        Long id = userId != null ? userId : (Long) req.getAttribute("userId");
+        if (!id.equals(req.getAttribute("userId"))) {
+            return Result.error("无权查询他人打卡记录");
+        }
         try {
-            List<String> dates = checkInMapper.getCheckInDates(userId);
+            List<String> dates = checkInMapper.getCheckInDates(id);
             if (dates == null || dates.isEmpty()) return Result.success(0);
 
             int streak = 0;
@@ -112,7 +147,11 @@ public class UserController {
     }
 
     @PostMapping("/update")
-    public Result updateProfile(@RequestBody User user) {
+    public Result updateProfile(HttpServletRequest req, @RequestBody User user) {
+        Long tokenUserId = (Long) req.getAttribute("userId");
+        if (user.getId() == null || !user.getId().equals(tokenUserId)) {
+            return Result.error("只能修改自己的资料");
+        }
         userService.updateById(user);
         return Result.success("Profile updated");
     }

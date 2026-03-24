@@ -378,10 +378,14 @@ onUnmounted(() => {
 
   .nav-menu {
     flex: 1;
+    min-height: 0;
+    overflow-y: auto;
     padding: 0 16px;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    &::-webkit-scrollbar { width: 4px; }
+    &::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 4px; }
   }
 
   .nav-item {

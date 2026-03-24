@@ -109,6 +109,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useDark } from '@vueuse/core'
+import request from '@/utils/request'
 import {
   ArrowLeft, MoreFilled, Picture, VideoCamera, Link, ChatLineSquare,
   Plus, ArrowDown, QuestionFilled, CircleCheck
@@ -145,31 +146,25 @@ const handlePublish = async () => {
   publishing.value = true
 
   try {
-    // 尝试从 localStorage 获取真实用户 ID
     const userStr = localStorage.getItem('user')
-    let userId = 1 // 默认 ID
+    let userId = 1
     if (userStr) {
       userId = JSON.parse(userStr).id
     }
 
-    const response = await fetch('http://localhost:8080/api/forum/posts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: userId, // 匹配 Java 实体的 userId
-        title: postTitle.value,
-        content: postContent.value,
-        section: postSection.value,
-        cover: coverUrl.value || `https://picsum.photos/seed/${Date.now()}/800/450`
-      })
-    });
+    const res = await request.post('/api/forum/posts', {
+      userId,
+      title: postTitle.value,
+      content: postContent.value,
+      section: postSection.value,
+      cover: coverUrl.value || `https://picsum.photos/seed/${Date.now()}/800/450`
+    })
 
-    const res = await response.json();
-    if (res.code === 200) {
+    if (res.data?.code === 200) {
       ElMessage.success('发布成功！')
       router.push('/forum')
     } else {
-      ElMessage.error(res.msg || '发布失败')
+      ElMessage.error(res.data?.msg || '发布失败')
     }
   } catch (error) {
     console.error('Publish error:', error)

@@ -21,8 +21,13 @@ mybatis:
     map-underscore-to-camel-case: true
 
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-# application.yml
+
 server:
   tomcat:
     max-swallow-size: 20MB
     max-http-form-post-size: 40MB
+
+jwt:
+  secret: asdfgHJHJKL123@#$$%789
+
+

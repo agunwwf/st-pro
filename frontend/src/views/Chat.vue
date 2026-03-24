@@ -152,7 +152,8 @@ import { ref, onMounted, onUnmounted, nextTick, reactive } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, ChatDotRound, Bell, Picture, Folder } from '@element-plus/icons-vue'
-import axios from 'axios'
+import request from '@/utils/request'
+window.axios = request
 
 // --- 状态管理 ---
 const route = useRoute()

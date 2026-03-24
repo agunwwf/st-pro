@@ -70,9 +70,10 @@ const handleAuth = async () => {
     if (res.data.code === 200) {
       if (isLogin.value) {
         ElMessage.success('Welcome back')
-        localStorage.setItem('token', 'mock-token-' + Date.now())
-        localStorage.setItem('user', JSON.stringify(res.data.data))
-        router.push('/')
+        const { token, user } = res.data.data
+        localStorage.setItem('token', token)
+        localStorage.setItem('user', JSON.stringify(user))
+        await router.push('/')
       } else {
         ElMessage.success('Account created successfully. Please sign in.')
         isLogin.value = true
