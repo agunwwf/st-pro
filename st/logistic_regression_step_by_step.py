@@ -13,6 +13,12 @@ from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, r
 from utils.api_deepseek import ask_ai_assistant
 from utils.session import init_session_state #初始化会话状态
 from utils.buttons import back_and_next_buttons #回到上一步和进入下一步按钮
+from utils.llm_helper import (
+    analyze_code,
+    save_step_error_context,
+    clear_step_error_context,
+    render_step_qa_panel,
+)
 import json
 import os
 
@@ -46,6 +52,8 @@ def save_to_disk():
 # 设置中文字体
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
+
+MODULE_ID = "logistic_regression"
 
 
 
@@ -270,9 +278,19 @@ for i in range(len(feature_names_cn)):
                     st.session_state.completed_steps.add(1)  # 标记步骤1完成
                     st.button("进入步骤2：特征与目标划分",
                             on_click=lambda: setattr(st.session_state, 'step', 2))
+                clear_step_error_context(MODULE_ID, 1)
 
             except Exception as e:
+                error_msg = str(e)
                 st.error(f"执行错误：{str(e)}")
+
+                # 调用AI生成错误分析
+                with st.spinner("AI正在分析你的错误..."):
+                    ai_analysis = analyze_code(step_num=1, user_code=user_code, error_msg=error_msg)
+
+                save_step_error_context(MODULE_ID, 1, user_code, error_msg, ai_analysis)
+
+        render_step_qa_panel(MODULE_ID, 1, user_code)
     with col2:
         st.button("↺ 还原", key="reset_s1", on_click=reset_callback)
 
@@ -346,9 +364,19 @@ print("y形状：", y.shape)    # 应是(569,)
                     st.session_state.completed_steps.add(2)  # 标记步骤2完成
                     st.button("进入步骤3：数据预处理",
                             on_click=lambda: setattr(st.session_state, 'step', 3))
+                clear_step_error_context(MODULE_ID, 2)
 
             except Exception as e:
+                error_msg = str(e)
                 st.error(f"执行错误：{str(e)}")
+
+                # 调用AI生成错误分析
+                with st.spinner("AI正在分析你的错误..."):
+                    ai_analysis = analyze_code(step_num=2, user_code=user_code, error_msg=error_msg)
+
+                save_step_error_context(MODULE_ID, 2, user_code, error_msg, ai_analysis)
+
+        render_step_qa_panel(MODULE_ID, 2, user_code)
     with col2:
         st.button("↺ 还原", key="reset_s2", on_click=reset_callback)
 
@@ -438,9 +466,19 @@ print("测试集样本数：", X_test_scaled.shape[0])
                     st.session_state.completed_steps.add(3)  # 标记步骤3完成
                     st.button("进入步骤4：构建逻辑回归模型",
                             on_click=lambda: setattr(st.session_state, 'step', 4))
+                clear_step_error_context(MODULE_ID, 3)
 
             except Exception as e:
+                error_msg = str(e)
                 st.error(f"执行错误：{str(e)}")
+
+                # 调用AI生成错误分析
+                with st.spinner("AI正在分析你的错误..."):
+                    ai_analysis = analyze_code(step_num=3, user_code=user_code, error_msg=error_msg)
+
+                save_step_error_context(MODULE_ID, 3, user_code, error_msg, ai_analysis)
+
+        render_step_qa_panel(MODULE_ID, 3, user_code)
     with col2:
         st.button("↺ 还原", key="reset_s3", on_click=reset_callback)
 
@@ -506,9 +544,19 @@ print("模型参数：", model.get_params())
                     st.session_state.completed_steps.add(4)  # 标记步骤4完成
                     st.button("进入步骤5：模型训练与预测",
                             on_click=lambda: setattr(st.session_state, 'step', 5))
+                clear_step_error_context(MODULE_ID, 4)
 
             except Exception as e:
+                error_msg = str(e)
                 st.error(f"执行错误：{str(e)}")
+
+                # 调用AI生成错误分析
+                with st.spinner("AI正在分析你的错误..."):
+                    ai_analysis = analyze_code(step_num=4, user_code=user_code, error_msg=error_msg)
+
+                save_step_error_context(MODULE_ID, 4, user_code, error_msg, ai_analysis)
+
+        render_step_qa_panel(MODULE_ID, 4, user_code)
     with col2:
         st.button("↺ 还原", key="reset_s4", on_click=reset_callback)
 
@@ -588,9 +636,19 @@ print("前10个真实标签：", y_test[:10])
                     st.session_state.completed_steps.add(5)  # 标记步骤5完成
                     st.button("进入步骤6：模型评估",
                             on_click=lambda: setattr(st.session_state, 'step', 6))
+                clear_step_error_context(MODULE_ID, 5)
 
             except Exception as e:
+                error_msg = str(e)
                 st.error(f"执行错误：{str(e)}")
+
+                # 调用AI生成错误分析
+                with st.spinner("AI正在分析你的错误..."):
+                    ai_analysis = analyze_code(step_num=5, user_code=user_code, error_msg=error_msg)
+
+                save_step_error_context(MODULE_ID, 5, user_code, error_msg, ai_analysis)
+
+        render_step_qa_panel(MODULE_ID, 5, user_code)
     with col2:
         st.button("↺ 还原", key="reset_s5", on_click=reset_callback)
 
@@ -720,11 +778,22 @@ print("详细分类报告：",report)
                     st.session_state.completed_steps.add(6)  # 标记步骤6完成
                     st.button("进入步骤7：特征影响力分析",
                             on_click=lambda: setattr(st.session_state, 'step', 7))
+                clear_step_error_context(MODULE_ID, 6)
 
             except Exception as e:
+                error_msg = str(e)
                 st.error(f"执行错误：{str(e)}")
+
+                # 调用AI生成错误分析
+                with st.spinner("AI正在分析你的错误..."):
+                    ai_analysis = analyze_code(step_num=6, user_code=user_code, error_msg=error_msg)
+
+                save_step_error_context(MODULE_ID, 6, user_code, error_msg, ai_analysis)
+
+        render_step_qa_panel(MODULE_ID, 6, user_code)
     with col2:
         st.button("↺ 还原", key="reset_s6", on_click=reset_callback)
+
 # 步骤7：特征影响力分析
 def step7():
     st.header("步骤7：特征影响力分析")
@@ -854,7 +923,17 @@ plt.show()
 
 
             except Exception as e:
+                error_msg = str(e)
                 st.error(f"执行错误：{str(e)}")
+
+                # 调用AI生成错误分析
+                with st.spinner("AI正在分析你的错误..."):
+                    ai_analysis = analyze_code(step_num=7, user_code=user_code, error_msg=error_msg)
+
+                save_step_error_context(MODULE_ID, 7, user_code, error_msg, ai_analysis)
+
+        render_step_qa_panel(MODULE_ID, 7, user_code)
+
     with col2:
         st.button("↺ 还原", key="reset_s7", on_click=reset_callback)
 # 步骤8：总结与思考

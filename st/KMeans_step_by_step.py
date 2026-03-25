@@ -13,10 +13,18 @@ from sklearn.decomposition import PCA  # 用于降维可视化
 from utils.api_deepseek import ask_ai_assistant  # 导入复用的AI助手函数
 from utils.session import init_session_state #初始化会话状态
 from utils.buttons import back_and_next_buttons #回到上一步和进入下一步按钮
+from utils.llm_helper import (
+    analyze_code,
+    save_step_error_context,
+    clear_step_error_context,
+    render_step_qa_panel,
+)
 
 # 设置中文字体
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
+
+MODULE_ID = "kmeans"
 
 # AI代码检查函数（适配KMeans聚类）
 def ai_code_checker(step, user_code):
@@ -219,9 +227,19 @@ for i in range(len(feature_names_cn)):
                 st.session_state.completed_steps.add(1)  # 标记步骤1完成
                 st.button("进入步骤2：特征数据准备",
                          on_click=lambda: setattr(st.session_state, 'step', 2))
+            clear_step_error_context(MODULE_ID, 1)
 
         except Exception as e:
+            error_msg = str(e)
             st.error(f"执行错误：{str(e)}")
+
+            # 调用AI生成错误分析
+            with st.spinner("AI正在分析你的错误..."):
+                ai_analysis = analyze_code(step_num=1, user_code=user_code, error_msg=error_msg)
+
+            save_step_error_context(MODULE_ID, 1, user_code, error_msg, ai_analysis)
+
+    render_step_qa_panel(MODULE_ID, 1, user_code)
 
 
 # 步骤2：特征数据准备
@@ -289,9 +307,19 @@ print("X形状：", X.shape)  # 应是(178, 13)
                 st.session_state.completed_steps.add(2)  # 标记步骤2完成
                 st.button("进入步骤3：数据预处理",
                          on_click=lambda: setattr(st.session_state, 'step', 3))
+            clear_step_error_context(MODULE_ID, 2)
 
         except Exception as e:
+            error_msg = str(e)
             st.error(f"执行错误：{str(e)}")
+
+            # 调用AI生成错误分析
+            with st.spinner("AI正在分析你的错误..."):
+                ai_analysis = analyze_code(step_num=2, user_code=user_code, error_msg=error_msg)
+
+            save_step_error_context(MODULE_ID, 2, user_code, error_msg, ai_analysis)
+
+    render_step_qa_panel(MODULE_ID, 2, user_code)
 
 
 # 步骤3：数据预处理
@@ -365,9 +393,19 @@ print("标准化后各特征的方差（应接近1）：", np.var(X_scaled, axis
                 st.session_state.completed_steps.add(3)  # 标记步骤3完成
                 st.button("进入步骤4：构建KMeans模型",
                          on_click=lambda: setattr(st.session_state, 'step', 4))
+            clear_step_error_context(MODULE_ID, 3)
 
         except Exception as e:
+            error_msg = str(e)
             st.error(f"执行错误：{str(e)}")
+
+            # 调用AI生成错误分析
+            with st.spinner("AI正在分析你的错误..."):
+                ai_analysis = analyze_code(step_num=3, user_code=user_code, error_msg=error_msg)
+
+            save_step_error_context(MODULE_ID, 3, user_code, error_msg, ai_analysis)
+
+    render_step_qa_panel(MODULE_ID, 3, user_code)
 
 
 # 步骤4：构建KMeans模型
@@ -425,9 +463,19 @@ print("模型参数：", model.get_params())
                 st.session_state.completed_steps.add(4)  # 标记步骤4完成
                 st.button("进入步骤5：模型训练与聚类",
                          on_click=lambda: setattr(st.session_state, 'step', 5))
+            clear_step_error_context(MODULE_ID, 4)
 
         except Exception as e:
+            error_msg = str(e)
             st.error(f"执行错误：{str(e)}")
+
+            # 调用AI生成错误分析
+            with st.spinner("AI正在分析你的错误..."):
+                ai_analysis = analyze_code(step_num=4, user_code=user_code, error_msg=error_msg)
+
+            save_step_error_context(MODULE_ID, 4, user_code, error_msg, ai_analysis)
+
+    render_step_qa_panel(MODULE_ID, 4, user_code)
 
 
 # 步骤5：模型训练与聚类
@@ -499,9 +547,19 @@ print("聚类标签分布：", np.bincount(cluster_labels))
                 st.session_state.completed_steps.add(5)  # 标记步骤5完成
                 st.button("进入步骤6：聚类结果评估与可视化",
                          on_click=lambda: setattr(st.session_state, 'step', 6))
+            clear_step_error_context(MODULE_ID, 5)
 
         except Exception as e:
+            error_msg = str(e)
             st.error(f"执行错误：{str(e)}")
+
+            # 调用AI生成错误分析
+            with st.spinner("AI正在分析你的错误..."):
+                ai_analysis = analyze_code(step_num=5, user_code=user_code, error_msg=error_msg)
+
+            save_step_error_context(MODULE_ID, 5, user_code, error_msg, ai_analysis)
+
+    render_step_qa_panel(MODULE_ID, 5, user_code)
 
 
 # 步骤6：聚类结果评估与可视化
@@ -613,9 +671,19 @@ plt.show()
                 st.subheader("恭喜！已用sklearn库完成葡萄酒数据集的KMeans聚类全流程")
                 st.button("进入步骤7：总结与思考",
                          on_click=lambda: setattr(st.session_state, 'step', 7))
+            clear_step_error_context(MODULE_ID, 6)
 
         except Exception as e:
+            error_msg = str(e)
             st.error(f"执行错误：{str(e)}")
+
+            # 调用AI生成错误分析
+            with st.spinner("AI正在分析你的错误..."):
+                ai_analysis = analyze_code(step_num=6, user_code=user_code, error_msg=error_msg)
+
+            save_step_error_context(MODULE_ID, 6, user_code, error_msg, ai_analysis)
+
+    render_step_qa_panel(MODULE_ID, 6, user_code)
 
 
 # 步骤7：总结与思考
