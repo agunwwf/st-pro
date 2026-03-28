@@ -13,6 +13,7 @@ import linear_regression_demo
 import bayes_text_classification_step_by_step
 
 
+
 def main() -> None:
     st.set_page_config(page_title="ML Demos", layout="wide")
     # Hide Streamlit built-in multipage sidebar nav (app/pages),
