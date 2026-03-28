@@ -146,14 +146,29 @@ async function sendMessage() {
   const text = inputText.value.trim()
   if (!text || streaming.value || waiting.value) return
 
+  const authToken = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null
+  if (!authToken) {
+    messages.value.push({ role: 'user', content: text })
+    inputText.value = ''
+    messages.value.push({
+      role: 'assistant',
+      content: '请先登录后再使用 AI 助手。',
+    })
+    return
+  }
+
   messages.value.push({ role: 'user', content: text })
   inputText.value = ''
   waiting.value = true
   await nextTick(scrollToBottom)
 
-  const es = new EventSource(
-      `${API_URL}?message=${encodeURIComponent(text)}&sessionId=${SESSION_ID}`
-  )
+  // EventSource 不能带 Header，JWT 需放在 query；后端 JwtInterceptor 已支持 token 参数
+  const params = new URLSearchParams({
+    message: text,
+    sessionId: SESSION_ID,
+    token: authToken,
+  })
+  const es = new EventSource(`${API_URL}?${params.toString()}`)
 
   messages.value.push({ role: 'assistant', content: '' })
   const lastIdx = messages.value.length - 1

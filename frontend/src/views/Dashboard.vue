@@ -102,6 +102,9 @@ const threadList = ref([])
 const todayThread = ref(null)
 const streakCount = ref(0)
 const onlineSeconds = ref(0)
+// 教学完成统计：来自后端 /api/learning/summary（Streamlit 里点「已完成」后写入 MySQL）
+const learningCompletedTotal = ref(0)
+const learningCompletedMax = ref(10) // 5 个项目 × 演示+分步 各 1 = 10，与后端 MODULES×KINDS 一致
 const showUpdateDialog = ref(false)
 const submitting = ref(false)
 const updateForm = reactive({ id: null, title: '', content: '' })
@@ -196,9 +199,15 @@ const greeting = computed(() => {
   return '晚上好'
 })
 
+// 四个统计卡片；「已完成教学」的分子分母由下面 loadData 里请求 summary 更新
 const stats = computed(() => [
   { label: '今日学习', value: formatOnlineTime(onlineSeconds.value), icon: Timer, color: '#0071E3' },
-  { label: '已完成', value: '8', icon: Checked, color: '#34C759' },
+  {
+    label: '已完成教学',
+    value: `${learningCompletedTotal.value}/${learningCompletedMax.value}`,
+    icon: Checked,
+    color: '#34C759',
+  },
   { label: '模范学生', value: user.value.isModel ? 'Yes' : 'No', icon: Star, color: '#FF9F0A' },
   { label: '阅读笔记', value: '24', icon: Reading, color: '#AF52DE' }
 ])
@@ -235,6 +244,17 @@ const loadData = async () => {
     if (todayRes.data.code === 200) todayThread.value = todayRes.data.data
   } catch (e) {
     console.error('加载今日进展失败', e)
+  }
+
+  // request 已带 baseURL 与 token 头；返回 { totalCount, maxCount, items[] }
+  try {
+    const learnRes = await request.get('/api/learning/summary')
+    if (learnRes.data.code === 200 && learnRes.data.data) {
+      learningCompletedTotal.value = learnRes.data.data.totalCount ?? 0
+      learningCompletedMax.value = learnRes.data.data.maxCount ?? 10
+    }
+  } catch (e) {
+    console.error('加载教学完成统计失败', e)
   }
 }
 
@@ -280,6 +300,13 @@ const submitUpdate = async () => {
   }
 }
 
+// 用户从 iframe（Streamlit）切回本站 Tab 时再拉一次数据，无需手动整页刷新即可更新「已完成教学」
+function onVisibilityRefresh() {
+  if (document.visibilityState === 'visible' && user.value?.id) {
+    loadData()
+  }
+}
+
 onMounted(() => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
@@ -288,6 +315,7 @@ onMounted(() => {
     onlineSeconds.value = loadStudySeconds(user.value.id)
     loadData()
     syncYearCheckinCountToServer()
+    document.addEventListener('visibilitychange', onVisibilityRefresh)
 
     studyHandler = (e) => {
       if (!e || !e.detail) return
@@ -302,6 +330,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  document.removeEventListener('visibilitychange', onVisibilityRefresh)
   if (studyHandler) window.removeEventListener('study-time-updated', studyHandler)
 })
 </script>

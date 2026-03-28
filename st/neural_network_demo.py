@@ -14,6 +14,7 @@ from sklearn.metrics import accuracy_score, mean_squared_error
 import time
 from utils.api_deepseek import client, ask_ai_assistant
 from utils.chat_interface import display_chat_interface
+from utils.learning_progress import render_demo_teaching_complete
 from matplotlib.colors import ListedColormap
 import neural_network_step_by_step
 
@@ -930,6 +931,9 @@ def main():
 
     # 更新会话状态
     st.session_state.section = section
+
+    if section != "编程实例（加州房价数据集）":
+        render_demo_teaching_complete("neural")
 
     context = ""
     if section == "神经网络基础概念":

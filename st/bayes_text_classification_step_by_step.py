@@ -19,6 +19,7 @@ from utils.llm_helper import (
     clear_step_error_context,
     render_step_qa_panel,
 )  # 回到上一步和进入下一步按钮
+from utils.learning_progress import render_demo_teaching_complete, render_step_teaching_complete
 
 # 设置中文字体
 plt.rcParams['font.sans-serif'] = ['SimHei']
@@ -911,6 +912,8 @@ def step7():
     # 重新开始按钮
     st.button("重新开始全部流程", on_click=lambda: setattr(st.session_state, 'step', 0))
 
+    render_step_teaching_complete("text")
+
 
 # 主程序
 def main():
@@ -943,6 +946,7 @@ def main():
 
     # 回到上一步和进入下一步按钮
     back_and_next_buttons('step',steps)
+    render_demo_teaching_complete("text")
     # 它让侧边栏自动选中当前的步骤，无论你是怎么跳过来的。
     selected_step = st.sidebar.radio(
         "跳转到步骤：",

@@ -95,3 +95,21 @@ CREATE TABLE IF NOT EXISTS `sys_forum_action` (
                                                   PRIMARY KEY (`id`),
                                                   UNIQUE KEY `uk_user_post_action` (`user_id`, `post_id`, `action_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ---------------------------------------------------------------------------
+-- 学习完成记录表：谁在什么时间标记完成了哪个项目的哪种学习。
+-- · user_id：关联 sys_user，一次登录一个用户。
+-- · module_id：与前端/Streamlit 约定的项目代号（5 个 ML 实验）。
+-- · kind：demo = 浏览完「演示教学」侧边栏点的完成；step = 「分步练习」最后一页点的完成。
+-- · uk_user_module_kind：同一用户对同一 module + kind 只能有一条 → 重复点击「已完成」不会多插行。
+-- 理论最多记录数 = 用户数 × 5(module) × 2(kind)；Dashboard 的「已完成教学」用 COUNT 展示进度。
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `sys_learning_completion` (
+    `id` bigint NOT NULL AUTO_INCREMENT,
+    `user_id` bigint NOT NULL,
+    `module_id` varchar(32) NOT NULL COMMENT 'kmeans, logistic, neural, linear, text',
+    `kind` varchar(16) NOT NULL COMMENT 'demo | step',
+    `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_user_module_kind` (`user_id`, `module_id`, `kind`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

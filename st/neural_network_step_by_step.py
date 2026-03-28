@@ -20,6 +20,7 @@ from utils.llm_helper import (
     clear_step_error_context,
     render_step_qa_panel,
 )
+from utils.learning_progress import render_step_teaching_complete
 import time
 
 # 设置中文字体
@@ -1007,6 +1008,8 @@ def step7():
 
     # 重新开始按钮
     st.button("重新开始全部流程", on_click=lambda: setattr(st.session_state, 'step', 0))
+
+    render_step_teaching_complete("neural")
 
 
 # 主程序

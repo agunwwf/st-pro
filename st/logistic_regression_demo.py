@@ -14,6 +14,7 @@ import time
 import io
 from utils.api_deepseek import client, ask_ai_assistant
 from utils.chat_interface import display_chat_interface
+from utils.learning_progress import render_demo_teaching_complete
 import logistic_regression_step_by_step
 
 # 设置页面
@@ -986,6 +987,9 @@ def main():
 
     # 更新会话状态
     st.session_state.section = section
+
+    if section != "编程实例（乳腺癌数据集）":
+        render_demo_teaching_complete("logistic")
 
     context = ""
     if section == "数据生成与探索":

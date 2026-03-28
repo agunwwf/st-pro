@@ -14,6 +14,7 @@ import time
 
 from utils.api_deepseek import client, ask_ai_assistant
 from utils.chat_interface import display_chat_interface
+from utils.learning_progress import render_demo_teaching_complete
 import linear_regression_step_by_step
 
 # # 设置页面
@@ -612,6 +613,9 @@ def main():
 
     # 更新会话状态的section
     st.session_state.section = section
+
+    if section != "编程实例（糖尿病数据集）":
+        render_demo_teaching_complete("linear")
 
     context = ""
     if section == "数据生成与探索":

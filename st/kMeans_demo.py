@@ -14,6 +14,7 @@ import io
 import KMeans_step_by_step
 from utils.api_deepseek import client, ask_ai_assistant
 from utils.chat_interface import display_chat_interface
+from utils.learning_progress import render_demo_teaching_complete
 
 # 设置页面
 try:
@@ -909,6 +910,9 @@ def main():
 
     # 更新会话状态
     st.session_state.section = section
+
+    if section != "编程实例（葡萄酒数据集）":
+        render_demo_teaching_complete("kmeans")
 
     context = ""
     if section == "数据生成与探索":
