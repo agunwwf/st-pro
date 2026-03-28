@@ -6,8 +6,6 @@ Usage:
 
 import streamlit as st
 
-from utils.user_context import render_user_sidebar, sync_user_context
-
 import kMeans_demo
 import logistic_regression_demo
 import neural_network_demo
@@ -18,7 +16,6 @@ import bayes_text_classification_step_by_step
 
 def main() -> None:
     st.set_page_config(page_title="ML Demos", layout="wide")
-    sync_user_context()
     # Hide Streamlit built-in multipage sidebar nav (app/pages),
     # keep only the custom "项目导航".
     st.markdown(
@@ -29,7 +26,6 @@ def main() -> None:
         """,
         unsafe_allow_html=True,
     )
-    render_user_sidebar()
     st.sidebar.title("项目导航")
     project_options = [
         ("kmeans", "K-means Teaching Platform"),
