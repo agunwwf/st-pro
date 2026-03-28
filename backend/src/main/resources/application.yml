@@ -1,4 +1,11 @@
-spring:
+  spring:
+    ai:
+    openai:
+      api-key: sk-9a7440e6433049ceb91abe9ed108def6
+      base-url: https://api.deepseek.com
+      chat:
+        options:
+          model: deepseek-chat
   datasource:
     url: jdbc:mysql://localhost:3306/apple_admin?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
     username: root
