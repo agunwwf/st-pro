@@ -1,5 +1,5 @@
-  spring:
-    ai:
+spring:
+  ai:
     openai:
       api-key: sk-9a7440e6433049ceb91abe9ed108def6
       base-url: https://api.deepseek.com
@@ -11,10 +11,8 @@
     username: root
     password: ${DB_PASSWORD:123456}
     driver-class-name: com.mysql.cj.jdbc.Driver
-
   servlet:
     multipart:
-      # 单个文件和请求的最大体积（根据需要再调小/调大）
       max-file-size: 20MB
       max-request-size: 40MB
   sql:
@@ -24,9 +22,7 @@
 
 mybatis:
   configuration:
-
     map-underscore-to-camel-case: true
-
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
 server:
@@ -36,5 +32,3 @@ server:
 
 jwt:
   secret: asdfgHJHJKL123@#$$%789
-
-

@@ -37,6 +37,10 @@ public class JwtInterceptor implements HandlerInterceptor {
                 token = token.substring(7);
             }
         }
+        // EventSource(SSE) 无法设置请求头，前端把 JWT 放在 query：?token=...
+        if (token == null || token.isBlank()) {
+            token = request.getParameter("token");
+        }
 
         if (token == null || token.isBlank()) {
             sendUnauthorized(response, "请先登录");

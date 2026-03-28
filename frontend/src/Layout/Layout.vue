@@ -101,11 +101,15 @@
         </router-view>
       </div>
     </main>
+
+    <!-- 全局 AI 助手悬浮按钮与面板 -->
+    <AiChat />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted, watch } from 'vue'
+import AiChat from '@/components/AiChat.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDark, useToggle } from '@vueuse/core'
 import {
