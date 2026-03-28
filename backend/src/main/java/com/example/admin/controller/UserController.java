@@ -27,6 +27,17 @@ public class UserController {
     @Autowired
     private CheckInMapper checkInMapper;
 
+    @GetMapping("/me")
+    public Result<User> getCurrentUser(HttpServletRequest req) {
+        Long id = (Long) req.getAttribute("userId");
+        User u = userService.getById(id);
+        if (u == null) {
+            return Result.error("用户不存在");
+        }
+        u.setPassword(null);
+        return Result.success(u);
+    }
+
     @PostMapping("/login")
     public Result login(@RequestBody User user) {
         User dbUser = userService.getByUsername(user.getUsername());

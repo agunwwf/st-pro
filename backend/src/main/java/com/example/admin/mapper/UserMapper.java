@@ -14,6 +14,16 @@ public interface UserMapper {
             "COALESCE(progress, 0) AS progress, " +
             "COALESCE(check_in_count, 0) AS checkInCount, " +
             "is_model as isModel, create_time as createTime " +
+            "FROM sys_user WHERE id = #{id}")
+    User getById(Long id);
+
+    @Select("SELECT id, username, password, " +
+            "COALESCE(nickname, username) AS nickname, " +
+            "COALESCE(avatar, 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png') AS avatar, " +
+            "signature, role, " +
+            "COALESCE(progress, 0) AS progress, " +
+            "COALESCE(check_in_count, 0) AS checkInCount, " +
+            "is_model as isModel, create_time as createTime " +
             "FROM sys_user WHERE username = #{username}")
     User getByUsername(String username);
 

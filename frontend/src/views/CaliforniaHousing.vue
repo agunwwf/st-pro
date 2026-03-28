@@ -6,10 +6,10 @@
 </template>
 
 <script setup>
-const host = (import.meta.env.VITE_ST_HOST || 'http://localhost').replace(/\/$/, '')
-const prefix = (import.meta.env.VITE_ST_PREFIX || '').replace(/\/$/, '')
-const baseUrl = prefix ? `${host}${prefix}/8501` : `${host}:8501`
-const runtimeUrl = `${baseUrl}?project=text`
+import { computed } from 'vue'
+import { buildStreamlitProjectUrl } from '@/utils/streamlitUrl'
+
+const runtimeUrl = computed(() => buildStreamlitProjectUrl('text'))
 </script>
 
 <style scoped>
