@@ -16,3 +16,21 @@ frontend/node_modules/  # 只忽略前端的依赖包，不忽略前端源码
 frontend/dist/
 frontend/build/
 .env*.local
+
+# === VS Code 历史记录 ===
+**/.history/
+
+# === Java 后端编译垃圾 ===
+**/target/
+**/*.class
+
+# === Python 编译垃圾 ===
+**/__pycache__/
+**/*.py[cod]
+
+# === 前端依赖垃圾  ===
+**/node_modules/
+
+
+# === 操作系统垃圾 ===
+**/.DS_Store
