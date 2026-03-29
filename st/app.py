@@ -21,14 +21,10 @@ def main() -> None:
     sync_user_context()
     # Hide Streamlit built-in multipage sidebar nav (app/pages),
     # keep only the custom "项目导航".
-    st.markdown(
-        """
-        <style>
-          [data-testid="stSidebarNav"] {display: none;}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+    # 👇 新增：统一拦截并提取 Vue 传来的 Token，存入全局状态
+    token = st.query_params.get("st_token")
+    if token:
+        st.session_state["global_token"] = token
     render_user_sidebar()
     st.sidebar.title("项目导航")
     project_options = [

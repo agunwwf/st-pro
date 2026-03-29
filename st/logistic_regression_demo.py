@@ -16,6 +16,7 @@ from utils.api_deepseek import client, ask_ai_assistant
 from utils.chat_interface import display_chat_interface
 from utils.learning_progress import render_demo_teaching_complete
 import logistic_regression_step_by_step
+from utils.quiz_helper import render_quiz_component
 
 # 设置页面
 try:
@@ -714,81 +715,78 @@ def model_evaluation_section():
 
 
 # 概念测验模块
-def quiz_section():
-    st.header("🎯 逻辑回归概念测验")
+# 确保文件顶部有引入通用组件：
+# from utils.quiz_helper import render_quiz_component
 
-    question = st.selectbox(
-        "选择一个问题测试你的理解:",
-        [
-            "逻辑回归的输出是什么?",
-            "sigmoid函数的作用是什么?",
-            "逻辑回归为什么使用交叉熵损失?",
-            "分类阈值如何影响模型性能?",
-            "逻辑回归可以处理非线性问题吗?"
-        ]
+def quiz_section():
+    # 1. 结构化的高质量题库（带有 A/B/C/D 前缀，并丰富了干扰选项）
+    LOGISTIC_QUIZ_DATA = [
+        {
+            "question": "1. 逻辑回归 (Logistic Regression) 模型的最终输出代表什么？",
+            "options": [
+                "A. 一个连续的实数预测值",
+                "B. 严格的 0 或 1 的绝对分类结果",
+                "C. 样本属于正类（某个特定类别）的概率",
+                "D. 数据点在多维空间中的聚类中心坐标"
+            ],
+            "answer": "C. 样本属于正类（某个特定类别）的概率",
+            "explanation": "虽然名字里带有“回归”，但逻辑回归实际上是一个二分类算法。它的核心输出是一个介于 0 到 1 之间的概率值，表示样本属于正类的可能性。"
+        },
+        {
+            "question": "2. Sigmoid 函数在逻辑回归中的主要作用是什么？",
+            "options": [
+                "A. 增加模型的复杂度以防止模型欠拟合",
+                "B. 将线性方程的输出映射为 (0,1) 区间的概率值",
+                "C. 自动筛选出对分类最有帮助的特征",
+                "D. 降低梯度下降算法在训练过程中的计算难度"
+            ],
+            "answer": "B. 将线性方程的输出映射为 (0,1) 区间的概率值",
+            "explanation": "线性回归的输出范围是负无穷到正无穷。Sigmoid 函数（即逻辑函数）像一个“挤压器”，能平滑地将任何实数映射到 (0,1) 之间，非常适合用来表示概率。"
+        },
+        {
+            "question": "3. 为什么逻辑回归使用“交叉熵 (Cross-Entropy)”作为损失函数，而不是均方误差 (MSE)？",
+            "options": [
+                "A. 因为交叉熵损失计算起来占用的内存更小",
+                "B. 因为搭配 Sigmoid 函数时，交叉熵损失是凸函数，更容易用梯度下降找到全局最优解",
+                "C. 没有特别的数学原因，仅仅是因为业界的传统习惯",
+                "D. 因为均方误差 (MSE) 只能用于处理图像级别的数据"
+            ],
+            "answer": "B. 因为搭配 Sigmoid 函数时，交叉熵损失是凸函数，更容易用梯度下降找到全局最优解",
+            "explanation": "如果逻辑回归使用 MSE，由于 Sigmoid 函数的非线性，损失函数将变成一个非凸函数，存在许多“坑”（局部极小值）。而交叉熵损失配合 Sigmoid 则是凸函数，保证了梯度下降一定能找到全局最优。"
+        },
+        {
+            "question": "4. 分类阈值 (Threshold，通常默认为 0.5) 的调整如何影响模型性能？",
+            "options": [
+                "A. 阈值的高低完全不影响模型的精确率 (Precision) 和召回率 (Recall)",
+                "B. 提高阈值通常会同时提高精确率和召回率",
+                "C. 提高阈值通常会提高精确率，但会降低召回率",
+                "D. 降低阈值会减少误报 (False Positives)，从而提高精确率"
+            ],
+            "answer": "C. 提高阈值通常会提高精确率，但会降低召回率",
+            "explanation": "高阈值（比如 0.8 才判定为正类）意味着模型在做决定时更加“谨慎”，这会减少误报（提高精确率），但同时也会漏掉一些本来是正类的样本（降低召回率）。这就是经典的 Precision-Recall 权衡问题。"
+        },
+        {
+            "question": "5. 逻辑回归可以处理“非线性可分”的分类问题吗？",
+            "options": [
+                "A. 绝对不能，逻辑回归只能处理严格线性可分的数据",
+                "B. 可以，通过特征工程（如添加多项式特征）将数据映射后进行分类",
+                "C. 可以，因为逻辑回归本身就是一种强大的非线性树模型",
+                "D. 只能通过更换为均方误差损失函数来处理非线性问题"
+            ],
+            "answer": "B. 可以，通过特征工程（如添加多项式特征）将数据映射后进行分类",
+            "explanation": "逻辑回归的决策边界在给定的特征空间中始终是线性的。但我们可以通过人工特征工程（比如引入特征的平方项 $x^2$、交叉项 $x_1x_2$），在高维空间画出超平面，从而在原始的低维空间中表现出非线性的决策边界。"
+        }
+    ]
+
+    # 2. 调用通用组件渲染
+    render_quiz_component(
+        module_key="logistic",
+        title="🎯 逻辑回归概念与原理测验",
+        description="本测验将检验你对逻辑回归的核心概念、损失函数（交叉熵）以及阈值权衡的理解。完成答题后，系统将自动批改并记录错题。",
+        quiz_data=LOGISTIC_QUIZ_DATA
     )
 
-    if question == "逻辑回归的输出是什么?":
-        answer = st.radio("选择正确答案:", [
-            "连续的预测值",
-            "0或1的分类结果",
-            "属于某个类别的概率"
-        ], key="q1")
-        if st.button("检查答案", key="b1"):
-            if answer == "属于某个类别的概率":
-                st.success("✅ 正确! 逻辑回归输出的是样本属于正类的概率，范围在0到1之间。")
-            else:
-                st.error("❌ 不正确，逻辑回归的核心输出是概率值，而非直接的分类结果或连续值。")
-
-    elif question == "sigmoid函数的作用是什么?":
-        answer = st.radio("选择正确答案:", [
-            "增加模型复杂度",
-            "将线性输出转换为概率",
-            "加速模型训练"
-        ], key="q2")
-        if st.button("检查答案", key="b2"):
-            if answer == "将线性输出转换为概率":
-                st.success("✅ 正确! Sigmoid函数能将任意实数映射到(0,1)区间，适合表示概率。")
-            else:
-                st.error("❌ 不正确，sigmoid函数的主要作用是将线性输出转换为概率。")
-
-    elif question == "逻辑回归为什么使用交叉熵损失?":
-        answer = st.radio("选择正确答案:", [
-            "交叉熵损失计算更简单",
-            "交叉熵损失是凸函数，更容易优化",
-            "没有特别原因，只是传统习惯"
-        ], key="q3")
-        if st.button("检查答案", key="b3"):
-            if answer == "交叉熵损失是凸函数，更容易优化":
-                st.success("✅ 正确! 对于逻辑回归，交叉熵损失是凸函数，存在唯一最小值，而均方误差是non-convex的。")
-            else:
-                st.error("❌ 不正确，主要原因是交叉熵损失对于逻辑回归是凸函数，更容易通过梯度下降找到最优解。")
-
-    elif question == "分类阈值如何影响模型性能?":
-        answer = st.radio("选择正确答案:", [
-            "阈值不影响模型性能",
-            "高阈值会提高精确率但降低召回率",
-            "高阈值会同时提高精确率和召回率"
-        ], key="q4")
-        if st.button("检查答案", key="b4"):
-            if answer == "高阈值会提高精确率但降低召回率":
-                st.success("✅ 正确! 高阈值意味着更严格的正类判断标准，减少误报但可能增加漏报。")
-            else:
-                st.error("❌ 不正确，高阈值会提高精确率（更少误报）但降低召回率（更多漏报）。")
-
-    elif question == "逻辑回归可以处理非线性问题吗?":
-        answer = st.radio("选择正确答案:", [
-            "不能，逻辑回归只能处理线性可分问题",
-            "可以，通过特征工程引入非线性特征",
-            "可以，逻辑回归本身是非线性模型"
-        ], key="q5")
-        if st.button("检查答案", key="b5"):
-            if answer == "可以，通过特征工程引入非线性特征":
-                st.success("✅ 正确! 逻辑回归的决策边界本身是线性的，但通过添加多项式特征等方式，可以处理非线性问题。")
-            else:
-                st.error("❌ 不正确，逻辑回归可以通过特征工程（如添加多项式特征）处理非线性问题。")
-
-    return f"概念测验模块: 当前问题='{question}'"
+    return "概念测验模块: 用户正在进行 逻辑回归 综合选择题测验"
 
 # 实际应用案例模块
 def real_world_example_section():

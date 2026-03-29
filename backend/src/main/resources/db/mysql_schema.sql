@@ -113,3 +113,14 @@ CREATE TABLE IF NOT EXISTS `sys_learning_completion` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_user_module_kind` (`user_id`, `module_id`, `kind`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- 学生成绩表 （后续可以在后台管理系统中做“成绩统计图表”）
+CREATE TABLE IF NOT EXISTS `sys_quiz_score` (
+    `id` bigint NOT NULL AUTO_INCREMENT,
+    `user_id` bigint NOT NULL COMMENT '用户ID',
+    `module_id` varchar(32) NOT NULL COMMENT '模块代号，例如: kmeans',
+    `score` int NOT NULL COMMENT '测验得分',
+    `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+    `answers_detail` JSON COMMENT '学生的具体答题详情(用于后台错题分析)',
+    PRIMARY KEY (`id`),
+    KEY `idx_user_module` (`user_id`, `module_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='测验成绩表';

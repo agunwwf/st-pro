@@ -15,7 +15,7 @@ import KMeans_step_by_step
 from utils.api_deepseek import client, ask_ai_assistant
 from utils.chat_interface import display_chat_interface
 from utils.learning_progress import render_demo_teaching_complete
-
+from utils.quiz_helper import render_quiz_component
 # 设置页面
 try:
     st.set_page_config(page_title="KMeans聚类交互式学习平台", layout="wide")
@@ -614,83 +614,72 @@ def evaluation_metrics_section():
 
     return f"聚类评估模块: 评估了K={k}时的聚类结果"
 
-
-# 概念测验模块
+# 测验模块
 def quiz_section():
-    st.header("🎯 KMeans聚类概念测验")
+   
+    KMEANS_QUIZ_DATA = [
+        {
+            "question": "1. KMeans 中的 K 代表什么？",
+            "options": [
+                "A. 算法迭代的最大次数", 
+                "B. 我们希望将数据划分成的聚类（簇）的数量", 
+                "C. 数据集中特征的维度"
+            ],
+            "answer": "B. 我们希望将数据划分成的聚类（簇）的数量",
+            "explanation": "K 是 KMeans 算法中最重要的超参数，代表簇（Cluster）的数量。这个值必须在算法运行前由人工或启发式算法（如肘部法则）指定。"
+        },
+        {
+            "question": "2. KMeans 算法的核心优化目标是什么？",
+            "options": [
+                "A. 最大化不同簇之间的距离", 
+                "B. 最小化所有数据点到其所属簇中心的距离平方和（惯性）", 
+                "C. 使每个簇包含的样本数量尽可能相等"
+            ],
+            "answer": "B. 最小化所有数据点到其所属簇中心的距离平方和（惯性）",
+            "explanation": "KMeans 的核心目标是最小化“簇内误差平方和”（Inertia/SSE）。它通过不断迭代更新簇中心来实现这一目标，让同一个簇内的数据点尽可能紧凑。"
+        },
+        {
+            "question": "3. 为什么 KMeans 算法对初始中心点的选择非常敏感？",
+            "options": [
+                "A. 因为不同的初始点会改变数据的特征权重", 
+                "B. 因为算法使用贪心策略，容易收敛到局部最优解而非全局最优解", 
+                "C. 因为计算精度有限，容易产生浮点数误差"
+            ],
+            "answer": "B. 因为算法使用贪心策略，容易收敛到局部最优解而非全局最优解",
+            "explanation": "KMeans 的优化过程是一个寻找非凸函数极小值的过程，极易陷入局部最优。不同的初始中心点会导致完全不同的聚类结果，因此实际工程中常采用 KMeans++ 来优化初始点的选择。"
+        },
+        {
+            "question": "4. KMeans 最适合处理以下哪种几何形状分布的数据？",
+            "options": [
+                "A. 长条形或半月形等非凸形状的数据", 
+                "B. 密度差异极大的不同簇数据", 
+                "C. 球形（凸形）且各簇密度相近的数据"
+            ],
+            "answer": "C. 球形（凸形）且各簇密度相近的数据",
+            "explanation": "KMeans 基于欧氏距离进行空间划分，天然偏好于发现球状的簇。对于复杂的非凸形状（如环形、半月形）或密度差异悬殊的数据，KMeans 往往表现不佳，此时 DBSCAN 等算法更为合适。"
+        },
+        {
+            "question": "5. 在实际应用中，'肘部法则' (Elbow Method) 的主要作用是什么？",
+            "options": [
+                "A. 用于评估聚类结果的轮廓系数", 
+                "B. 用于帮助寻找最佳的超参数 K 值", 
+                "C. 用于降低高维数据的特征维度"
+            ],
+            "answer": "B. 用于帮助寻找最佳的超参数 K 值",
+            "explanation": "通过绘制不同 K 值对应的惯性（Inertia）折线图，找到下降速度突然变缓的拐点（即“肘部”）。这个拐点通常被认为是模型复杂度和聚类效果之间达到良好平衡的最佳 K 值。"
+        }
+    ]
 
-    question = st.selectbox(
-        "选择一个问题测试你的理解:",
-        [
-            "KMeans中的K代表什么?",
-            "KMeans的目标是什么?",
-            "为什么KMeans对初始中心点敏感?",
-            "KMeans适合处理什么样的数据?",
-            "肘部法则的原理是什么?"
-        ]
+    
+    
+    render_quiz_component(
+        module_key="kmeans",
+        title="🎯 KMeans 聚类概念与原理测验",
+        description="本测验旨在检验你对 K-Means 算法核心原理、适用场景及评估方法的掌握程度。请完成所有选择题后点击底部按钮交卷，成绩将同步至你的学习档案。",
+        quiz_data=KMEANS_QUIZ_DATA
     )
 
-    if question == "KMeans中的K代表什么?":
-        answer = st.radio("选择正确答案:", [
-            "迭代次数",
-            "聚类的数量",
-            "特征的维度"
-        ], key="q1")
-        if st.button("检查答案", key="b1"):
-            if answer == "聚类的数量":
-                st.success("✅ 正确! K代表我们希望将数据分成的聚类数量。")
-            else:
-                st.error("❌ 不正确，K代表的是聚类的数量，即我们希望将数据分成多少个组。")
-
-    elif question == "KMeans的目标是什么?":
-        answer = st.radio("选择正确答案:", [
-            "最大化簇间距离，最小化簇内距离",
-            "最小化所有数据点到其簇中心的距离平方和",
-            "使每个簇的样本数量尽可能相等"
-        ], key="q2")
-        if st.button("检查答案", key="b2"):
-            if answer == "最小化所有数据点到其簇中心的距离平方和":
-                st.success("✅ 正确! KMeans的目标是最小化惯性（inertia），即所有样本到其最近簇中心的距离平方和。")
-            else:
-                st.error("❌ 不正确，KMeans的核心目标是最小化所有数据点到其所属簇中心的距离平方和。")
-
-    elif question == "为什么KMeans对初始中心点敏感?":
-        answer = st.radio("选择正确答案:", [
-            "因为算法会收敛到局部最优而非全局最优",
-            "因为初始点决定了特征权重",
-            "因为计算精度有限"
-        ], key="q3")
-        if st.button("检查答案", key="b3"):
-            if answer == "因为算法会收敛到局部最优而非全局最优":
-                st.success("✅ 正确! KMeans使用贪婪算法，不同的初始点可能导致收敛到不同的局部最优解。")
-            else:
-                st.error("❌ 不正确，KMeans对初始点敏感是因为它会收敛到局部最优，而非全局最优解。")
-
-    elif question == "KMeans适合处理什么样的数据?":
-        answer = st.radio("选择正确答案:", [
-            "高维稀疏数据",
-            "非凸形状的聚类数据",
-            "球形、密度相近的聚类数据"
-        ], key="q4")
-        if st.button("检查答案", key="b4"):
-            if answer == "球形、密度相近的聚类数据":
-                st.success("✅ 正确! KMeans对球形、凸形且密度相近的聚类数据效果最好。")
-            else:
-                st.error("❌ 不正确，KMeans最适合处理球形、密度相近的聚类数据，对非凸形状数据效果较差。")
-
-    elif question == "肘部法则的原理是什么?":
-        answer = st.radio("选择正确答案:", [
-            "找到轮廓系数最大的K值",
-            "找到惯性开始缓慢下降的K值点",
-            "找到与真实标签最匹配的K值"
-        ], key="q5")
-        if st.button("检查答案", key="b5"):
-            if answer == "找到惯性开始缓慢下降的K值点":
-                st.success("✅ 正确! 肘部法则通过观察惯性随K值增加的变化，选择惯性开始缓慢下降的'肘部'位置作为最佳K值。")
-            else:
-                st.error("❌ 不正确，肘部法则的原理是找到惯性开始缓慢下降的K值点，这个点被称为'肘部'。")
-
-    return f"概念测验模块: 当前问题='{question}'"
+    return "概念测验模块: 用户正在进行 KMeans 综合选择题测验"
 
 # 实际应用案例模块
 def real_world_example_section():

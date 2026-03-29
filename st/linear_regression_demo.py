@@ -16,6 +16,7 @@ from utils.api_deepseek import client, ask_ai_assistant
 from utils.chat_interface import display_chat_interface
 from utils.learning_progress import render_demo_teaching_complete
 import linear_regression_step_by_step
+from utils.quiz_helper import render_quiz_component
 
 # # 设置页面
 try:
@@ -425,81 +426,77 @@ def residual_analysis_section():
     return f"残差分析模块: 残差均值={np.mean(residuals):.4f}, 标准差={np.std(residuals):.4f}"
 
 # 概念测验模块
-def quiz_section():
-    st.header("🎯 概念测验")
 
-    question = st.selectbox(
-        "选择一个问题测试你的理解:",
-        [
-            "线性回归的目标是什么?",
-            "什么是梯度下降?",
-            "过拟合是什么意思?",
-            "R² score的取值范围是什么?",
-            "残差分析的作用是什么?"
-        ]
+def quiz_section():
+    # 1. 结构化的高质量题库（带有 A/B/C/D 前缀，并丰富了干扰选项）
+    LINEAR_QUIZ_DATA = [
+        {
+            "question": "1. 线性回归的核心优化目标是什么？",
+            "options": [
+                "A. 最小化预测值与实际值的绝对差",
+                "B. 最小化预测值与实际值的平方差",
+                "C. 最大化预测值与实际值的相关系数",
+                "D. 最小化数据特征之间的相关性"
+            ],
+            "answer": "B. 最小化预测值与实际值的平方差",
+            "explanation": "线性回归通常使用最小二乘法（OLS），其核心目标是最小化所有数据点的残差平方和（SSE），从而找到一条最佳拟合直线。"
+        },
+        {
+            "question": "2. 在机器学习中，什么是“梯度下降” (Gradient Descent)？",
+            "options": [
+                "A. 一种用于特征降维的数据处理技术",
+                "B. 一种优化算法，用于迭代更新参数以最小化损失函数",
+                "C. 一种评估模型预测准确率的指标",
+                "D. 一种用来生成新特征的数学变换"
+            ],
+            "answer": "B. 一种优化算法，用于迭代更新参数以最小化损失函数",
+            "explanation": "梯度下降是一种一阶最优化算法，它通过计算损失函数关于参数的梯度（导数），沿着梯度的反方向不断迈步（学习率），最终找到损失函数的极小值点。"
+        },
+        {
+            "question": "3. 模型发生“过拟合” (Overfitting) 是什么意思？",
+            "options": [
+                "A. 模型过于简单，无法捕捉数据中的潜在模式",
+                "B. 模型在训练集和测试集上都表现出极高的准确率",
+                "C. 模型过于复杂，过度学习了训练数据中的特征甚至噪声",
+                "D. 模型的参数数量太少导致训练时间过长"
+            ],
+            "answer": "C. 模型过于复杂，过度学习了训练数据中的特征甚至噪声",
+            "explanation": "过拟合意味着模型“死记硬背”了训练数据（包括噪声和异常值），导致其泛化能力极差，在新数据（测试集）上表现糟糕。"
+        },
+        {
+            "question": "4. 决定系数 (R² score) 的理论取值范围是什么？",
+            "options": [
+                "A. 0 到 1 之间",
+                "B. -1 到 1 之间",
+                "C. -∞ (负无穷) 到 1 之间",
+                "D. -∞ 到 +∞ 之间"
+            ],
+            "answer": "C. -∞ (负无穷) 到 1 之间",
+            "explanation": "R² 最大值为 1，表示模型完美预测数据。当模型性能不如直接使用均值预测时，R² 为负数。若模型极其糟糕，R² 理论上可以趋于负无穷。"
+        },
+        {
+            "question": "5. 残差分析 (Residual Analysis) 在线性回归中的主要作用是什么？",
+            "options": [
+                "A. 检查模型误差是否符合零均值、同方差及正态分布等假设",
+                "B. 增加模型的复杂度以提高训练集准确率",
+                "C. 减少梯度下降算法收敛所需的计算时间",
+                "D. 自动筛选并剔除不重要的特征向量"
+            ],
+            "answer": "A. 检查模型误差是否符合零均值、同方差及正态分布等假设",
+            "explanation": "线性回归的成立依赖于多个假设（如残差应随机分布且无自相关性）。残差分析通过绘制残差图，帮助我们验证这些假设是否被破坏，从而决定是否需要对数据进行非线性转换。"
+        }
+    ]
+
+    # 2. 调用通用组件渲染
+
+    render_quiz_component(
+        module_key="linear",
+        title="🎯 线性回归概念与原理测验",
+        description="本测验旨在检验你对线性回归原理、优化算法（梯度下降）以及模型评估指标的掌握情况。请答题，成绩及错题分析将同步至云端档案。",
+        quiz_data=LINEAR_QUIZ_DATA
     )
 
-    if question == "线性回归的目标是什么?":
-        answer = st.radio("选择正确答案:", [
-            "最小化预测值与实际值的绝对差",
-            "最小化预测值与实际值的平方差",
-            "最大化预测值与实际值的相关系数"
-        ], key="q1")
-        if st.button("检查答案", key="b1"):
-            if answer == "最小化预测值与实际值的平方差":
-                st.success("✅ 正确! 线性回归使用最小二乘法最小化平方误差。")
-            else:
-                st.error("❌ 不正确，请再思考一下。")
-
-    elif question == "什么是梯度下降?":
-        answer = st.radio("选择正确答案:", [
-            "一种数据可视化技术",
-            "一种优化算法，用于最小化损失函数",
-            "一种数据预处理方法"
-        ], key="q2")
-        if st.button("检查答案", key="b2"):
-            if answer == "一种优化算法，用于最小化损失函数":
-                st.success("✅ 正确! 梯度下降通过迭代更新参数来最小化损失函数。")
-            else:
-                st.error("❌ 不正确，请再思考一下。")
-
-    elif question == "过拟合是什么意思?":
-        answer = st.radio("选择正确答案:", [
-            "模型过于简单，无法捕捉数据中的模式",
-            "模型过于复杂，过度适应训练数据中的噪声",
-            "模型在训练和测试数据上都表现良好"
-        ], key="q3")
-        if st.button("检查答案", key="b3"):
-            if answer == "模型过于复杂，过度适应训练数据中的噪声":
-                st.success("✅ 正确! 过拟合的模型在训练数据上表现很好，但在新数据上表现不佳。")
-            else:
-                st.error("❌ 不正确，请再思考一下。")
-
-    elif question == "R² score的取值范围是什么?":
-        answer = st.radio("选择正确答案:", [
-            "0到1之间",
-            "-∞到+∞",
-            "-1到1之间"
-        ], key="q4")
-        if st.button("检查答案", key="b4"):
-            if answer == "-∞到+∞":
-                st.success("✅ 正确! R² score理论上可以取任何值，但通常接近1表示好拟合。")
-            else:
-                st.error("❌ 不正确，请再思考一下。")
-
-    elif question == "残差分析的作用是什么?":
-        answer = st.radio("选择正确答案:", [
-            "检查模型假设是否成立",
-            "增加模型复杂度",
-            "减少计算时间"
-        ], key="q5")
-        if st.button("检查答案", key="b5"):
-            if answer == "检查模型假设是否成立":
-                st.success("✅ 正确! 残差分析帮助验证线性回归模型的假设。")
-            else:
-                st.error("❌ 不正确，请再思考一下。")
-
-    return f"概念测验模块: 当前问题='{question}'"
+    return "概念测验模块: 用户正在进行 线性回归 综合选择题测验"
 
 # 实际应用案例模块
 def real_world_example_section():
