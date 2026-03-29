@@ -60,7 +60,7 @@
         </router-link>
         <router-link :to="{name:'AiTest'}" class="nav-item" active-class="active">
           <el-icon><Apple /></el-icon>
-          <span v-if="!isCollapse">Calendar</span>
+          <span v-if="!isCollapse">AI练习</span>
         </router-link>
 
         <router-link :to="{ name: 'Forum' }" class="nav-item">
