@@ -58,6 +58,10 @@
           <el-icon><Calendar /></el-icon>
           <span v-if="!isCollapse">Calendar</span>
         </router-link>
+        <router-link :to="{name:'AiTest'}" class="nav-item" active-class="active">
+          <el-icon><Apple /></el-icon>
+          <span v-if="!isCollapse">Calendar</span>
+        </router-link>
 
         <router-link :to="{ name: 'Forum' }" class="nav-item">
           <el-icon><Search /></el-icon>
@@ -123,8 +127,9 @@ import {
   Menu,
   Monitor,
   ArrowDown,
-  Edit, Search
+  Edit, Search, Apple
 } from '@element-plus/icons-vue'
+import AiTest from "@/views/AiTest.vue";
 
 const route = useRoute()
 const router = useRouter()

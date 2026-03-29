@@ -42,6 +42,11 @@ const routes = [
         meta: { title: 'Dashboard', requiresAuth: true }
       },
       {
+        path: 'AiTest',
+        name: 'AiTest',
+        component: () => import('../views/AiTest.vue'),
+      },
+      {
         path: 'projects',
         name: 'Projects',
         component: () => import('../views/Projects.vue'),
