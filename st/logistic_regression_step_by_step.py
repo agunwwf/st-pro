@@ -13,6 +13,11 @@ from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, r
 from utils.api_deepseek import ask_ai_assistant
 from utils.session import init_session_state #初始化会话状态
 from utils.buttons import back_and_next_buttons #回到上一步和进入下一步按钮
+from utils.progress_store import isolate_module_session, restore_step_progress, persist_step_progress
+from utils.step_validator import validate_step
+from config.step_content import get_reference_code
+from config.step_content import get_starter_code
+from utils.step_ui import ensure_step_code_defaults, render_reference_answer
 from utils.llm_helper import (
     analyze_code,
     save_step_error_context,
@@ -61,70 +66,7 @@ MODULE_ID = "logistic_regression"
 
 # AI代码检查函数（适配逻辑回归）
 def ai_code_checker(step, user_code):
-    try:
-        if step == 1:
-            errors = []
-            if 'load_breast_cancer' not in user_code:
-                errors.append("❌ 请加载乳腺癌数据集（使用load_breast_cancer）")
-            if 'X_raw.shape' not in user_code:
-                errors.append("❌ 数据形状应使用X_raw.shape（提示：.shape）")
-            if 'X_raw[:3]' not in user_code:
-                errors.append("❌ 前3行特征应使用X_raw[:3]（提示：切片[:3]）")
-            if 'np.mean(X_raw, axis=0)' not in user_code:
-                errors.append("❌ 特征均值应使用np.mean(X_raw, axis=0)（提示：计算列均值）")
-            if 'np.var(X_raw, axis=0)' not in user_code:
-                errors.append("❌ 特征方差应使用np.var(X_raw, axis=0)（提示：计算列方差）")
-            return "✅ 步骤1通过！" if not errors else "\n".join(errors)
-
-        elif step == 2:
-            errors = []
-            if 'X = X_raw' not in user_code or 'y = y_raw' not in user_code:
-                errors.append("❌ 请用X = X_raw和y = y_raw划分特征与目标")
-            if 'shape' not in user_code:
-                errors.append("💡 建议打印X.shape和y.shape查看维度")
-            return "✅ 步骤2通过！" if not errors else "\n".join(errors)
-
-        elif step == 3:
-            errors = []
-            if 'train_test_split' not in user_code:
-                errors.append("❌ 请用train_test_split划分训练集和测试集")
-            if 'test_size=0.' not in user_code or 'random_state=' not in user_code:
-                errors.append("❌ 请设置参数test_size 和 random_state")
-            if 'scaler.fit_transform(X_train)' not in user_code or 'scaler.transform(X_test)' not in user_code:
-                errors.append("❌ 训练集用fit_transform，测试集用transform")
-            return "✅ 步骤3通过！" if not errors else "\n".join(errors)
-
-        elif step == 4:
-            if 'LogisticRegression()' not in user_code or 'model = LogisticRegression()' not in user_code:
-                return "❌ 请实例化逻辑回归模型（model = LogisticRegression()）"
-            return "✅ 步骤4通过！"
-
-        elif step == 5:
-            errors = []
-            if 'model.fit(X_train_scaled, y_train)' not in user_code:
-                errors.append("❌ 训练模型应为model.fit(X_train_scaled, y_train)")
-            if 'model.predict(X_test_scaled)' not in user_code:
-                errors.append("❌ 预测应为model.predict(X_test_scaled)")
-            return "✅ 步骤5通过！" if not errors else "\n".join(errors)
-
-        elif step == 6:
-            errors = []
-            if 'accuracy_score' not in user_code:
-                errors.append("❌ 请用accuracy_score计算准确率")
-            if 'precision_score' not in user_code:
-                errors.append("❌ 请用precision_score计算精确率")
-            if 'recall_score' not in user_code:
-                errors.append("❌ 请用recall_score计算召回率")
-            if 'f1_score' not in user_code:
-                errors.append("❌ 请用f1_score计算F1分数")
-            if 'confusion_matrix' not in user_code:
-                errors.append("❌ 请用confusion_matrix生成混淆矩阵")
-            if 'classification_report' not in user_code:
-                errors.append("❌ 请用classification_report生成详细分类报告")
-            return "✅ 步骤6通过！" if not errors else "\n".join(errors)
-
-    except Exception as e:
-        return f"⚠️ 代码错误：{str(e)}"
+    return validate_step(MODULE_ID, step, user_code)
 
 
 # 步骤0：项目说明与数据展示
@@ -188,7 +130,7 @@ def step1():
     """)
 
     # 代码骨架（填空式）
-    code_skeleton = """
+    reference_skeleton = """
 # 1. 加载数据并定义特征中文名称
 from sklearn.datasets import load_breast_cancer
 cancer = load_breast_cancer()
@@ -222,6 +164,15 @@ for i in range(len(feature_names_cn)):
     print(f"  均值: {feature_means[i]:.4f}")
     print(f"  方差: {feature_vars[i]:.4f}")
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 1, reference_skeleton)
+    ensure_step_code_defaults(
+        code_snippets_key="step1",
+        text_area_key="step1_code",
+        starter_code=code_skeleton,
+        reference_code=reference_skeleton,
+    )
+    render_reference_answer(get_reference_code(MODULE_ID, 1, reference_skeleton))
+    code_skeleton = get_starter_code(MODULE_ID, 1, code_skeleton)
 
     
     if "step1_code" not in st.session_state:
@@ -284,10 +235,16 @@ for i in range(len(feature_names_cn)):
             except Exception as e:
                 error_msg = str(e)
                 st.error(f"执行错误：{str(e)}")
+                st.info(f"步骤要求检查：\n{ai_code_checker(1, user_code)}")
 
                 # 调用AI生成错误分析
                 with st.spinner("AI正在分析你的错误..."):
-                    ai_analysis = analyze_code(step_num=1, user_code=user_code, error_msg=error_msg)
+                    ai_analysis = analyze_code(
+                        step_num=1,
+                        user_code=user_code,
+                        error_msg=error_msg,
+                        reference_code=get_reference_code(MODULE_ID, 1, reference_skeleton),
+                    )
 
                 save_step_error_context(MODULE_ID, 1, user_code, error_msg, ai_analysis)
 
@@ -319,7 +276,7 @@ def step2():
 
 
     # 代码骨架
-    code_skeleton = """
+    reference_skeleton = """
 # 划分特征（X）和目标变量（y）
 X = X_raw    # 特征（30个肿块特征）
 y = y_raw    # 目标变量（0=恶性，1=良性）
@@ -328,6 +285,14 @@ y = y_raw    # 目标变量（0=恶性，1=良性）
 print("X形状：", X.shape)    # 应是(569, 30)
 print("y形状：", y.shape)    # 应是(569,)
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 2, reference_skeleton)
+    ensure_step_code_defaults(
+        code_snippets_key="step2",
+        text_area_key="step2_code",
+        starter_code=code_skeleton,
+        reference_code=reference_skeleton,
+    )
+    render_reference_answer(get_reference_code(MODULE_ID, 2, reference_skeleton))
 
     if "step2_code" not in st.session_state:
         saved_data = load_from_disk()
@@ -370,10 +335,16 @@ print("y形状：", y.shape)    # 应是(569,)
             except Exception as e:
                 error_msg = str(e)
                 st.error(f"执行错误：{str(e)}")
+                st.info(f"步骤要求检查：\n{ai_code_checker(2, user_code)}")
 
                 # 调用AI生成错误分析
                 with st.spinner("AI正在分析你的错误..."):
-                    ai_analysis = analyze_code(step_num=2, user_code=user_code, error_msg=error_msg)
+                    ai_analysis = analyze_code(
+                        step_num=2,
+                        user_code=user_code,
+                        error_msg=error_msg,
+                        reference_code=get_reference_code(MODULE_ID, 2, reference_skeleton),
+                    )
 
                 save_step_error_context(MODULE_ID, 2, user_code, error_msg, ai_analysis)
 
@@ -404,7 +375,7 @@ def step3():
     """)
 
     # 代码骨架
-    code_skeleton = """
+    reference_skeleton = """
 # 划分训练集和测试集
 from sklearn.model_selection import train_test_split
 
@@ -421,6 +392,14 @@ X_test_scaled = scaler.transform(X_test)  # 提示：测试集用 transform
 print("训练集样本数：", X_train_scaled.shape[0])
 print("测试集样本数：", X_test_scaled.shape[0])
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 3, reference_skeleton)
+    ensure_step_code_defaults(
+        code_snippets_key="step3",
+        text_area_key="step3_code",
+        starter_code=code_skeleton,
+        reference_code=reference_skeleton,
+    )
+    render_reference_answer(get_reference_code(MODULE_ID, 3, reference_skeleton))
     if "step3_code" not in st.session_state:
         saved_data = load_from_disk()
         # 优先读硬盘 -> 硬盘没有则读默认骨架
@@ -472,10 +451,16 @@ print("测试集样本数：", X_test_scaled.shape[0])
             except Exception as e:
                 error_msg = str(e)
                 st.error(f"执行错误：{str(e)}")
+                st.info(f"步骤要求检查：\n{ai_code_checker(3, user_code)}")
 
                 # 调用AI生成错误分析
                 with st.spinner("AI正在分析你的错误..."):
-                    ai_analysis = analyze_code(step_num=3, user_code=user_code, error_msg=error_msg)
+                    ai_analysis = analyze_code(
+                        step_num=3,
+                        user_code=user_code,
+                        error_msg=error_msg,
+                        reference_code=get_reference_code(MODULE_ID, 3, reference_skeleton),
+                    )
 
                 save_step_error_context(MODULE_ID, 3, user_code, error_msg, ai_analysis)
 
@@ -498,7 +483,7 @@ def step4():
     **任务说明**：
     从sklearn.linear_model导入LogisticRegression并实例化（默认参数）
     """)
-    code_skeleton = """
+    reference_skeleton = """
 # 导入逻辑回归模型
 from sklearn.linear_model import LogisticRegression
 
@@ -508,6 +493,14 @@ model = LogisticRegression()
 # 查看模型参数
 print("模型参数：", model.get_params())
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 4, reference_skeleton)
+    ensure_step_code_defaults(
+        code_snippets_key="step4",
+        text_area_key="step4_code",
+        starter_code=code_skeleton,
+        reference_code=reference_skeleton,
+    )
+    render_reference_answer(get_reference_code(MODULE_ID, 4, reference_skeleton))
     if "step4_code" not in st.session_state:
         saved_data = load_from_disk()
         # 优先读硬盘 -> 硬盘没有则读默认骨架
@@ -550,10 +543,16 @@ print("模型参数：", model.get_params())
             except Exception as e:
                 error_msg = str(e)
                 st.error(f"执行错误：{str(e)}")
+                st.info(f"步骤要求检查：\n{ai_code_checker(4, user_code)}")
 
                 # 调用AI生成错误分析
                 with st.spinner("AI正在分析你的错误..."):
-                    ai_analysis = analyze_code(step_num=4, user_code=user_code, error_msg=error_msg)
+                    ai_analysis = analyze_code(
+                        step_num=4,
+                        user_code=user_code,
+                        error_msg=error_msg,
+                        reference_code=get_reference_code(MODULE_ID, 4, reference_skeleton),
+                    )
 
                 save_step_error_context(MODULE_ID, 4, user_code, error_msg, ai_analysis)
 
@@ -583,7 +582,7 @@ def step5():
     2. 用测试集（X_test_scaled）生成预测标签
     """)
 
-    code_skeleton = """
+    reference_skeleton = """
 # 训练模型
 # 用标准化的训练集训练
 model.fit(X_train_scaled, y_train)    # 提示：参数为X_train_scaled, y_train
@@ -595,6 +594,14 @@ y_pred = model.predict(X_test_scaled)    # 提示：参数为X_test_scaled
 print("前10个预测结果：", y_pred[:10])
 print("前10个真实标签：", y_test[:10])
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 5, reference_skeleton)
+    ensure_step_code_defaults(
+        code_snippets_key="step5",
+        text_area_key="step5_code",
+        starter_code=code_skeleton,
+        reference_code=reference_skeleton,
+    )
+    render_reference_answer(get_reference_code(MODULE_ID, 5, reference_skeleton))
     if "step5_code" not in st.session_state:
         saved_data = load_from_disk()
         # 优先读硬盘 -> 硬盘没有则读默认骨架
@@ -642,10 +649,16 @@ print("前10个真实标签：", y_test[:10])
             except Exception as e:
                 error_msg = str(e)
                 st.error(f"执行错误：{str(e)}")
+                st.info(f"步骤要求检查：\n{ai_code_checker(5, user_code)}")
 
                 # 调用AI生成错误分析
                 with st.spinner("AI正在分析你的错误..."):
-                    ai_analysis = analyze_code(step_num=5, user_code=user_code, error_msg=error_msg)
+                    ai_analysis = analyze_code(
+                        step_num=5,
+                        user_code=user_code,
+                        error_msg=error_msg,
+                        reference_code=get_reference_code(MODULE_ID, 5, reference_skeleton),
+                    )
 
                 save_step_error_context(MODULE_ID, 5, user_code, error_msg, ai_analysis)
 
@@ -675,7 +688,7 @@ def step6():
     2. 生成混淆矩阵和详细分类报告
     """)
 
-    code_skeleton = """
+    reference_skeleton = """
 # 导入评估指标
 from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score, f1_score, classification_report
 
@@ -704,6 +717,14 @@ print("混淆矩阵：", cm)
 report=classification_report(y_test, y_pred, target_names=target_names_cn)
 print("详细分类报告：",report)
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 6, reference_skeleton)
+    ensure_step_code_defaults(
+        code_snippets_key="step6",
+        text_area_key="step6_code",
+        starter_code=code_skeleton,
+        reference_code=reference_skeleton,
+    )
+    render_reference_answer(get_reference_code(MODULE_ID, 6, reference_skeleton))
 
     if "step6_code" not in st.session_state:
         saved_data = load_from_disk()
@@ -784,10 +805,16 @@ print("详细分类报告：",report)
             except Exception as e:
                 error_msg = str(e)
                 st.error(f"执行错误：{str(e)}")
+                st.info(f"步骤要求检查：\n{ai_code_checker(6, user_code)}")
 
                 # 调用AI生成错误分析
                 with st.spinner("AI正在分析你的错误..."):
-                    ai_analysis = analyze_code(step_num=6, user_code=user_code, error_msg=error_msg)
+                    ai_analysis = analyze_code(
+                        step_num=6,
+                        user_code=user_code,
+                        error_msg=error_msg,
+                        reference_code=get_reference_code(MODULE_ID, 6, reference_skeleton),
+                    )
 
                 save_step_error_context(MODULE_ID, 6, user_code, error_msg, ai_analysis)
 
@@ -821,7 +848,7 @@ def step7():
     """)
 
     # 代码骨架
-    code_skeleton = """
+    reference_skeleton = """
 # 获取模型特征系数（每个特征对应一个系数）
 feature_coef = model.coef_[0]  # model为训练好的逻辑回归模型
 
@@ -861,6 +888,14 @@ for bar in bars:
 plt.tight_layout()  # 自动调整布局，避免文字重叠
 plt.show()
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 7, reference_skeleton)
+    ensure_step_code_defaults(
+        code_snippets_key="step7",
+        text_area_key="step7_code",
+        starter_code=code_skeleton,
+        reference_code=reference_skeleton,
+    )
+    render_reference_answer(get_reference_code(MODULE_ID, 7, reference_skeleton))
 
     if "step7_code" not in st.session_state:
         saved_data = load_from_disk()
@@ -920,16 +955,23 @@ plt.show()
                 st.subheader("恭喜！已用sklearn库完成乳腺癌数据集的逻辑回归全流程")
                 st.session_state.completed_steps.add(7)  # 标记步骤7完成
                 st.button("进入步骤8：总结与思考",on_click=lambda: setattr(st.session_state, 'step', 8))
+                clear_step_error_context(MODULE_ID, 7)
 
 
 
             except Exception as e:
                 error_msg = str(e)
                 st.error(f"执行错误：{str(e)}")
+                st.info(f"步骤要求检查：\n{ai_code_checker(7, user_code)}")
 
                 # 调用AI生成错误分析
                 with st.spinner("AI正在分析你的错误..."):
-                    ai_analysis = analyze_code(step_num=7, user_code=user_code, error_msg=error_msg)
+                    ai_analysis = analyze_code(
+                        step_num=7,
+                        user_code=user_code,
+                        error_msg=error_msg,
+                        reference_code=get_reference_code(MODULE_ID, 7, reference_skeleton),
+                    )
 
                 save_step_error_context(MODULE_ID, 7, user_code, error_msg, ai_analysis)
 
@@ -1042,22 +1084,54 @@ def step8():
 
 # 主程序
 def main():
+    isolate_module_session(MODULE_ID)
     # 初始化会话状态（确保每次进入都有正确的初始化）
     init_session_state({
-        'step': 0, #从0开始
-        'data': None, #特征数据
-        'feature_names': None, #特征名称
-        'X': None, #特征
-        'y': None, #目标变量（分类标签）
-        'code_snippets': {}, #存储各步骤代码
-        'raw_dataset': None, #原始数据集
-        'y_pred': None, #预测结果
-        'completed_steps': set([0]), #已完成的步骤集合（步骤0默认完成）
-        'X_train': None, #训练集特征
-        'X_test': None, #测试集特征
-        'y_train': None, #训练集标签
-        'y_test': None #测试集标签
+        'step': 0,  # 从0开始
+        'data': None,  # 特征数据
+        'feature_names': None,  # 特征名称
+        'X': None,  # 特征
+        'y': None,  # 目标变量（分类标签）
+        'code_snippets': {},  # 存储各步骤代码
+        'raw_dataset': None,  # 原始数据集
+        'y_pred': None,  # 预测结果
+        'completed_steps': set([0]),  # 已完成的步骤集合（步骤0默认完成）
+        'X_train': None,  # 训练集特征
+        'X_test': None,  # 测试集特征
+        'y_train': None,  # 训练集标签
+        'y_test': None,  # 测试集标签
+        'accuracy': None,
+        'precision': None,
+        'recall': None,
+        'f1': None,
+        'cm': None,
+        'report': None,
     })
+    # 恢复本模块的所有关键状态，避免刷新后需要重新跑完前置步骤
+    restore_step_progress(
+        MODULE_ID,
+        base_keys=[
+            "step",
+            "data",
+            "feature_names",
+            "X",
+            "y",
+            "X_train",
+            "X_test",
+            "y_train",
+            "y_test",
+            "y_pred",
+            "accuracy",
+            "precision",
+            "recall",
+            "f1",
+            "cm",
+            "report",
+            "code_snippets",
+            "completed_steps",
+        ]
+        + [f"step{i}_code" for i in range(1, 10)]
+    )
 
     st.title("📝 逻辑回归分步编程训练")
     st.title("（乳腺癌数据集版）")
@@ -1112,6 +1186,32 @@ def main():
         step7()  # 显示步骤7内容
     elif st.session_state.step == 8:
         step8()  # 显示步骤8内容
+
+    # 持久化当前模块的所有关键状态
+    persist_step_progress(
+        MODULE_ID,
+        base_keys=[
+            "step",
+            "data",
+            "feature_names",
+            "X",
+            "y",
+            "X_train",
+            "X_test",
+            "y_train",
+            "y_test",
+            "y_pred",
+            "accuracy",
+            "precision",
+            "recall",
+            "f1",
+            "cm",
+            "report",
+            "code_snippets",
+            "completed_steps",
+        ]
+        + [f"step{i}_code" for i in range(1, 10)]
+    )
 
 
 if __name__ == "__main__":

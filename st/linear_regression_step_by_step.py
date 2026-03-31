@@ -12,6 +12,10 @@ from sklearn.metrics import mean_squared_error, r2_score
 from utils.api_deepseek import ask_ai_assistant
 from utils.session import init_session_state #初始化会话状态
 from utils.buttons import back_and_next_buttons #回到上一步和进入下一步按钮
+from utils.progress_store import isolate_module_session, restore_step_progress, persist_step_progress
+from utils.step_validator import validate_step
+from config.step_content import get_reference_code, get_starter_code
+from utils.step_ui import ensure_step_code_defaults, render_reference_answer
 from utils.llm_helper import (
     analyze_code,
     save_step_error_context,
@@ -28,90 +32,7 @@ MODULE_ID = "linear_regression"
 
 # 改进后的AI代码检查函数（精确检查填空内容）
 def ai_code_checker(step, user_code):
-    try:
-        user_code_clean = user_code.replace(" ", "")
-        if step == 1:
-            errors = []
-            # 检查shape填空
-            if 'X_raw.shape' not in user_code_clean:  # 允许空格误差
-                errors.append("❌ 数据形状应使用X_raw.shape（提示：.shape）")
-
-            # 检查切片填空
-            if 'X_raw[0:5]' not in user_code_clean or '0:' not in user_code_clean:
-                errors.append("❌ 前5行特征应使用X_raw[0:5]（提示：切片0:5）")
-
-            # 检查均值填空
-            if 'np.mean(y_raw)' not in user_code_clean:
-                errors.append("❌ 目标变量均值应使用np.mean(y_raw)（提示：参数是y_raw）")
-
-            # 检查标准差填空
-            if 'X_raw[:,0]' not in user_code_clean:
-                errors.append("❌ 第一个特征标准差应使用X_raw[:,0]（提示：[:,0]取第一列）")
-
-            if not errors:
-                return "✅ 步骤1通过！成功观察数据"
-            return "\n".join(errors)
-
-        elif step == 2:
-            errors = []
-            if not errors:
-                return "✅ 步骤2通过！特征与目标划分正确"
-            return "\n".join(errors)
-
-        elif step == 3:
-            errors = []
-            if 'train_test_split' not in user_code:
-                errors.append("❌ 请用train_test_split划分训练集和测试集")
-            if 'test_size=0.2' not in user_code:
-                errors.append("❌ train_test_split的test_size参数应为0.2")
-            if 'random_state=42' not in user_code:
-                errors.append("❌ train_test_split的random_state参数应为42")
-            if 'scaler.fit_transform(X_train)' not in user_code:
-                errors.append("❌ 训练集标准化应使用scaler.fit_transform(X_train)")
-            if 'scaler.transform(X_test)' not in user_code:
-                errors.append("❌ 测试集标准化应使用scaler.transform(X_test)")
-
-            if not errors:
-                return "✅ 步骤3通过！数据预处理完成"
-            return "\n".join(errors)
-
-        elif step == 4:
-            if 'LinearRegression()' not in user_code:
-                return "❌ 请实例化LinearRegression模型（如model = LinearRegression()）"
-            if 'model = LinearRegression()' not in user_code:
-                return "❌ 模型实例化应为model = LinearRegression()"
-            return "✅ 步骤4通过！模型构建正确"
-
-        elif step == 5:
-            errors = []
-            if '.fit(' not in user_code or 'X_train' not in user_code:
-                errors.append("❌ 请用model.fit(X_train, y_train)训练模型")
-            if 'model.fit(X_train_scaled, y_train)' not in user_code:
-                errors.append("❌ 训练模型应为model.fit(X_train_scaled, y_train)")
-            if '.predict(' not in user_code or 'X_test' not in user_code:
-                errors.append("❌ 请用model.predict(X_test)生成预测结果")
-            if 'model.predict(X_test_scaled)' not in user_code:
-                errors.append("❌ 预测应为model.predict(X_test_scaled)")
-
-            if not errors:
-                return "✅ 步骤5通过！训练和预测完成"
-            return "\n".join(errors)
-
-        elif step == 6:
-            errors = []
-            if 'mean_squared_error' not in user_code and 'r2_score' not in user_code:
-                errors.append("❌ 请用MSE或R²评估模型")
-            if 'mean_squared_error(y_test, y_pred)' not in user_code:
-                errors.append("❌ MSE计算应为mean_squared_error(y_test, y_pred)")
-            if 'r2_score(y_test, y_pred)' not in user_code:
-                errors.append("❌ R²计算应为r2_score(y_test, y_pred)")
-
-            if not errors:
-                return "✅ 步骤6通过！模型评估完成"
-            return "\n".join(errors)
-
-    except Exception as e:
-        return f"⚠️ 代码错误：{str(e)}。提示：检查numpy数组索引是否正确"
+    return validate_step(MODULE_ID, step, user_code)
 
 
 # 新增：步骤0：项目说明
@@ -205,7 +126,7 @@ def step1():
     """)
 
       # 代码骨架（糖尿病数据集版）
-    code_skeleton = """
+    reference_skeleton = """
 # 加载糖尿病数据集
 from sklearn.datasets import load_diabetes
 import numpy as np
@@ -224,6 +145,14 @@ print("特征名称：", feature_names)    # 如['age', 'sex', 'bmi'等]
 print("目标变量（疾病进展）的均值：", np.mean(________))    # 提示：目标变量是y_raw
 print("第一个特征（年龄）的标准差：", np.std(X_raw[:, ________]))    # 提示：[:,0]取第一列
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 1, reference_skeleton)
+    ensure_step_code_defaults(
+        code_snippets_key="step1",
+        text_area_key="step1_code",
+        starter_code=code_skeleton,
+        reference_code=reference_skeleton,
+    )
+    render_reference_answer(get_reference_code(MODULE_ID, 1, reference_skeleton))
     # 如果代码片段不存在，则保存到会话状态
     if  'step1' not in st.session_state.code_snippets:
         st.session_state.code_snippets['step1'] = code_skeleton
@@ -274,10 +203,16 @@ print("第一个特征（年龄）的标准差：", np.std(X_raw[:, ________])) 
         except Exception as e:
             error_msg = str(e)
             st.error(f"执行错误：{str(e)}")
+            st.info(f"步骤要求检查：\n{ai_code_checker(1, user_code)}")
 
             # 调用AI生成错误分析
             with st.spinner("AI正在分析你的错误..."):
-                ai_analysis = analyze_code(step_num=1, user_code=user_code, error_msg=error_msg)
+                ai_analysis = analyze_code(
+                    step_num=1,
+                    user_code=user_code,
+                    error_msg=error_msg,
+                    reference_code=get_reference_code(MODULE_ID, 1, reference_skeleton),
+                )
 
             save_step_error_context(MODULE_ID, 1, user_code, error_msg, ai_analysis)
 
@@ -323,6 +258,7 @@ y = y_raw    # 目标变量（疾病进展）
 print("X形状：", X.shape)    # 应是(442, 10)
 print("y形状：", y.shape)    # 应是(442,)
 """
+    code_skeleton = get_starter_code(MODULE_ID, 2, code_skeleton)
     # 如果代码片段不存在，则保存到会话状态
     if 'step2' not in st.session_state.code_snippets:
         st.session_state.code_snippets['step2'] = code_skeleton
@@ -372,7 +308,12 @@ print("y形状：", y.shape)    # 应是(442,)
 
             # 调用AI生成错误分析
             with st.spinner("AI正在分析你的错误..."):
-                ai_analysis = analyze_code(step_num=2, user_code=user_code, error_msg=error_msg)
+                ai_analysis = analyze_code(
+                    step_num=2,
+                    user_code=user_code,
+                    error_msg=error_msg,
+                    reference_code=get_reference_code(MODULE_ID, 2, code_skeleton),
+                )
 
             save_step_error_context(MODULE_ID, 2, user_code, error_msg, ai_analysis)
 
@@ -436,6 +377,7 @@ print("标准化后训练集缩放比例：", scaler_scale)
 print("训练集特征形状：", X_train_scaled.shape)
 print("测试集特征形状：", X_test_scaled.shape)
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 3, code_skeleton)
 
     # 如果代码片段不存在，则保存到会话状态
     if 'step3' not in st.session_state.code_snippets:
@@ -473,8 +415,11 @@ print("测试集特征形状：", X_test_scaled.shape)
             st.success("预处理完成：")
             st.write(f"训练集样本数：{locals_dict['X_train_scaled'].shape[0]}，测试集样本数：{locals_dict['X_test_scaled'].shape[0]}")
             st.write("标准化后训练集前2行：", locals_dict['X_train_scaled'][:2].tolist())
-            st.write(f"标准化后训练集均值：{locals_dict['scaler_mean']}")
-            st.write(f"标准化后训练集缩放比例：{locals_dict['scaler_scale']}")
+            # 直接基于 X_train_scaled 计算均值和缩放比例，避免依赖学生自定义变量名
+            train_mean = np.mean(locals_dict['X_train_scaled'], axis=0).round(4).tolist()
+            train_scale = np.std(locals_dict['X_train_scaled'], axis=0).round(4).tolist()
+            st.write(f"标准化后训练集均值：{train_mean}")
+            st.write(f"标准化后训练集缩放比例（标准差）：{train_scale}")
             ai_feedback = ai_code_checker(3, user_code)
             st.info(f"AI提示：{ai_feedback}")
 
@@ -491,7 +436,12 @@ print("测试集特征形状：", X_test_scaled.shape)
 
             # 调用AI生成错误分析
             with st.spinner("AI正在分析你的错误..."):
-                ai_analysis = analyze_code(step_num=3, user_code=user_code, error_msg=error_msg)
+                ai_analysis = analyze_code(
+                    step_num=3,
+                    user_code=user_code,
+                    error_msg=error_msg,
+                    reference_code=get_reference_code(MODULE_ID, 3, code_skeleton),
+                )
 
             save_step_error_context(MODULE_ID, 3, user_code, error_msg, ai_analysis)
 
@@ -538,6 +488,7 @@ model = LinearRegression()
 # 查看模型参数
 print("模型参数：", model._______)
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 4, code_skeleton)
     # 如果代码片段不存在，则保存到会话状态
     if 'step4' not in st.session_state.code_snippets:
         st.session_state.code_snippets['step4'] = code_skeleton
@@ -580,7 +531,12 @@ print("模型参数：", model._______)
 
             # 调用AI生成错误分析
             with st.spinner("AI正在分析你的错误..."):
-                ai_analysis = analyze_code(step_num=4, user_code=user_code, error_msg=error_msg)
+                ai_analysis = analyze_code(
+                    step_num=4,
+                    user_code=user_code,
+                    error_msg=error_msg,
+                    reference_code=get_reference_code(MODULE_ID, 4, code_skeleton),
+                )
 
             save_step_error_context(MODULE_ID, 4, user_code, error_msg, ai_analysis)
 
@@ -628,6 +584,7 @@ y_pred = model.predict(________)    # 提示：参数为X_test_scaled
 print("前5个预测值（疾病进展）：", y_pred[:5])
 print("前5个实际值：", y_test[:5])
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 5, code_skeleton)
 
     # 如果代码片段不存在，则保存到会话状态
     if 'step5' not in st.session_state.code_snippets:
@@ -681,7 +638,12 @@ print("前5个实际值：", y_test[:5])
 
             # 调用AI生成错误分析
             with st.spinner("AI正在分析你的错误..."):
-                ai_analysis = analyze_code(step_num=5, user_code=user_code, error_msg=error_msg)
+                ai_analysis = analyze_code(
+                    step_num=5,
+                    user_code=user_code,
+                    error_msg=error_msg,
+                    reference_code=get_reference_code(MODULE_ID, 5, code_skeleton),
+                )
 
             save_step_error_context(MODULE_ID, 5, user_code, error_msg, ai_analysis)
 
@@ -722,6 +684,7 @@ r2 = r2_score(________, ________)
 print(f"均方误差（MSE）：{mse:.2f}")
 print(f"决定系数（R²）：{r2:.2f}")
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 6, code_skeleton)
 
     # 如果代码片段不存在，则保存到会话状态
     if 'step6' not in st.session_state.code_snippets:
@@ -785,7 +748,12 @@ print(f"决定系数（R²）：{r2:.2f}")
 
             # 调用AI生成错误分析
             with st.spinner("AI正在分析你的错误..."):
-                ai_analysis = analyze_code(step_num=6, user_code=user_code, error_msg=error_msg)
+                ai_analysis = analyze_code(
+                    step_num=6,
+                    user_code=user_code,
+                    error_msg=error_msg,
+                    reference_code=get_reference_code(MODULE_ID, 6, code_skeleton),
+                )
 
             save_step_error_context(MODULE_ID, 6, user_code, error_msg, ai_analysis)
 
@@ -853,23 +821,46 @@ def step7():
 # 主程序
 
 def main():
+    isolate_module_session(MODULE_ID)
     # 初始化会话状态（确保每次进入都有正确的初始化）
     init_session_state({
-        'step': 0, #从0开始
-        'data': None, #特征数据
-        'feature_names': None, #特征名称
-        'X': None, #特征
-        'y': None, #目标变量（疾病进展）
-        'code_snippets': {}, #存储各步骤代码
-        'raw_dataset': None, #原始数据集
+        'step': 0,  # 从0开始
+        'data': None,  # 特征数据
+        'feature_names': None,  # 特征名称
+        'X': None,  # 特征
+        'y': None,  # 目标变量（疾病进展）
+        'code_snippets': {},  # 存储各步骤代码
+        'raw_dataset': None,  # 原始数据集
         'X_train': None,
-        'y_train': None, #训练集目标变量
-        'X_test': None, #测试集特征
-        'y_test': None, #测试集目标变量
-        'completed_steps': set([0]), #已完成的步骤集合（步骤0默认完成）
-        'model': None, #模型
-        'y_pred': None, #预测结果
+        'y_train': None,  # 训练集目标变量
+        'X_test': None,  # 测试集特征
+        'y_test': None,  # 测试集目标变量
+        'completed_steps': set([0]),  # 已完成的步骤集合（步骤0默认完成）
+        'y_pred': None,  # 预测结果
+        'mse': None,
+        'r2': None,
     })
+    # 恢复进度时同步所有关键教学状态，避免刷新后被迫从头执行前置步骤
+    restore_step_progress(
+        MODULE_ID,
+        base_keys=[
+            "step",
+            "data",
+            "feature_names",
+            "X",
+            "y",
+            "X_train",
+            "y_train",
+            "X_test",
+            "y_test",
+            "y_pred",
+            "mse",
+            "r2",
+            "code_snippets",
+            "completed_steps",
+        ]
+        + [f"step{i}_code" for i in range(1, 9)]
+    )
 
     # 仅在本模块单独运行时显示标题，嵌入时不显示
     #if 'section' not in st.session_state or st.session_state.section != "编程实例（糖尿病数据集）":
@@ -932,6 +923,28 @@ def main():
         step7()
 #    elif st.session_state.step == 8:
 #        step8()
+
+    # 每次交互结束时持久化所有关键状态
+    persist_step_progress(
+        MODULE_ID,
+        base_keys=[
+            "step",
+            "data",
+            "feature_names",
+            "X",
+            "y",
+            "X_train",
+            "y_train",
+            "X_test",
+            "y_test",
+            "y_pred",
+            "mse",
+            "r2",
+            "code_snippets",
+            "completed_steps",
+        ]
+        + [f"step{i}_code" for i in range(1, 9)]
+    )
 
 if __name__ == "__main__":
     main()

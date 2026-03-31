@@ -13,6 +13,10 @@ from sklearn.decomposition import PCA  # 用于降维可视化
 from utils.api_deepseek import ask_ai_assistant  # 导入复用的AI助手函数
 from utils.session import init_session_state #初始化会话状态
 from utils.buttons import back_and_next_buttons #回到上一步和进入下一步按钮
+from utils.progress_store import isolate_module_session, restore_step_progress, persist_step_progress
+from utils.step_validator import validate_step
+from config.step_content import get_reference_code, get_starter_code
+from utils.step_ui import ensure_step_code_defaults, render_reference_answer
 from utils.llm_helper import (
     analyze_code,
     save_step_error_context,
@@ -29,67 +33,7 @@ MODULE_ID = "kmeans"
 
 # AI代码检查函数（适配KMeans聚类）
 def ai_code_checker(step, user_code):
-    try:
-        if step == 1:
-            errors = []
-            if 'load_wine' not in user_code:
-                errors.append("❌ 请加载葡萄酒数据集（使用load_wine）")
-            if 'X_raw.shape' not in user_code:
-                errors.append("❌ 数据形状应使用X_raw.shape（提示：.shape）")
-            if 'X_raw[:3]' not in user_code:
-                errors.append("❌ 前3行特征应使用X_raw[:3]（提示：切片[:3]）")
-            if 'np.mean(X_raw, axis=0)' not in user_code:
-                errors.append("❌ 特征均值应使用np.mean(X_raw, axis=0)")
-            if 'np.var(X_raw, axis=0)' not in user_code:
-                errors.append("❌ 特征方差应使用np.var(X_raw, axis=0)")
-            return "✅ 步骤1通过！" if not errors else "\n".join(errors)
-
-        elif step == 2:
-            errors = []
-            if 'X = X_raw' not in user_code:
-                errors.append("❌ 请用X = X_raw定义特征数据")
-            if 'shape' not in user_code:
-                errors.append("💡 建议打印X.shape查看维度")
-            return "✅ 步骤2通过！" if not errors else "\n".join(errors)
-
-        elif step == 3:
-            errors = []
-            if 'StandardScaler' not in user_code:
-                errors.append("❌ 请用StandardScaler进行特征标准化")
-            if 'scaler.fit_transform(X)' not in user_code:
-                errors.append("❌ 应使用scaler.fit_transform(X)标准化特征")
-            return "✅ 步骤3通过！" if not errors else "\n".join(errors)
-
-        elif step == 4:
-            errors = []
-            if 'KMeans' not in user_code or 'model = KMeans' not in user_code:
-                errors.append("❌ 请实例化KMeans模型（model = KMeans()）")
-            if 'n_clusters=3' not in user_code:
-                errors.append("❌ 请设置n_clusters=3（葡萄酒数据集原始有3类）")
-            if 'random_state=42' not in user_code:
-                errors.append("❌ 请设置random_state=42保证结果可复现")
-            return "✅ 步骤4通过！" if not errors else "\n".join(errors)
-
-        elif step == 5:
-            errors = []
-            if 'model.fit' not in user_code:
-                errors.append("❌ 训练模型应为model.fit(X_scaled)")
-            if 'model.predict(X_scaled)' not in user_code and 'model.fit_predict' not in user_code:
-                errors.append("❌ 请使用model.predict或fit_predict获取聚类标签")
-            return "✅ 步骤5通过！" if not errors else "\n".join(errors)
-
-        elif step == 6:
-            errors = []
-            if 'silhouette_score' not in user_code:
-                errors.append("❌ 请用silhouette_score计算轮廓系数")
-            if 'calinski_harabasz_score' not in user_code:
-                errors.append("❌ 请用calinski_harabasz_score计算CH指数")
-            if 'PCA' not in user_code:
-                errors.append("❌ 请用PCA进行降维可视化")
-            return "✅ 步骤6通过！" if not errors else "\n".join(errors)
-
-    except Exception as e:
-        return f"⚠️ 代码错误：{str(e)}"
+    return validate_step(MODULE_ID, step, user_code)
 
 
 # 步骤0：项目说明与数据展示
@@ -163,7 +107,7 @@ def step1():
     """)
 
     # 代码骨架
-    code_skeleton = """
+    reference_skeleton = """
 # 1. 加载数据并定义特征中文名称
 from sklearn.datasets import load_wine
 wine = load_wine()
@@ -191,6 +135,14 @@ for i in range(len(feature_names_cn)):
     print(f"  均值: {feature_means[i]:.4f}")
     print(f"  方差: {feature_vars[i]:.4f}")
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 1, reference_skeleton)
+    ensure_step_code_defaults(
+        code_snippets_key="step1",
+        text_area_key="step1_code",
+        starter_code=code_skeleton,
+        reference_code=reference_skeleton,
+    )
+    render_reference_answer(get_reference_code(MODULE_ID, 1, reference_skeleton))
 
     # 如果代码片段不存在，则保存到会话状态
     if 'step1' not in st.session_state.code_snippets:
@@ -233,10 +185,16 @@ for i in range(len(feature_names_cn)):
         except Exception as e:
             error_msg = str(e)
             st.error(f"执行错误：{str(e)}")
+            st.info(f"步骤要求检查：\n{ai_code_checker(1, user_code)}")
 
             # 调用AI生成错误分析
             with st.spinner("AI正在分析你的错误..."):
-                ai_analysis = analyze_code(step_num=1, user_code=user_code, error_msg=error_msg)
+                ai_analysis = analyze_code(
+                    step_num=1,
+                    user_code=user_code,
+                    error_msg=error_msg,
+                    reference_code=get_reference_code(MODULE_ID, 1, reference_skeleton),
+                )
 
             save_step_error_context(MODULE_ID, 1, user_code, error_msg, ai_analysis)
 
@@ -266,7 +224,7 @@ def step2():
     """)
 
     # 代码骨架
-    code_skeleton = """
+    reference_skeleton = """
 # 定义特征数据
 X = X_raw  # 特征（13个化学成分特征）
 
@@ -277,6 +235,14 @@ print("各类别样本数：", np.bincount(true_labels))  # 统计每个类别�
 # 查看特征形状
 print("X形状：", X.shape)  # 应是(178, 13)
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 2, reference_skeleton)
+    ensure_step_code_defaults(
+        code_snippets_key="step2",
+        text_area_key="step2_code",
+        starter_code=code_skeleton,
+        reference_code=reference_skeleton,
+    )
+    render_reference_answer(get_reference_code(MODULE_ID, 2, reference_skeleton))
 
     # 如果代码片段不存在，则保存到会话状态
     if 'step2' not in st.session_state.code_snippets:
@@ -313,10 +279,16 @@ print("X形状：", X.shape)  # 应是(178, 13)
         except Exception as e:
             error_msg = str(e)
             st.error(f"执行错误：{str(e)}")
+            st.info(f"步骤要求检查：\n{ai_code_checker(2, user_code)}")
 
             # 调用AI生成错误分析
             with st.spinner("AI正在分析你的错误..."):
-                ai_analysis = analyze_code(step_num=2, user_code=user_code, error_msg=error_msg)
+                ai_analysis = analyze_code(
+                    step_num=2,
+                    user_code=user_code,
+                    error_msg=error_msg,
+                    reference_code=get_reference_code(MODULE_ID, 2, reference_skeleton),
+                )
 
             save_step_error_context(MODULE_ID, 2, user_code, error_msg, ai_analysis)
 
@@ -346,7 +318,7 @@ def step3():
     """)
 
     # 代码骨架
-    code_skeleton = """
+    reference_skeleton = """
 # 特征标准化
 from sklearn.preprocessing import StandardScaler
 scaler = StandardScaler()
@@ -358,6 +330,14 @@ X_scaled = scaler.fit_transform(X)  # 提示：使用fit_transform
 print("标准化后各特征的均值（应接近0）：", np.mean(X_scaled, axis=0).round(4))
 print("标准化后各特征的方差（应接近1）：", np.var(X_scaled, axis=0).round(4))
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 3, reference_skeleton)
+    ensure_step_code_defaults(
+        code_snippets_key="step3",
+        text_area_key="step3_code",
+        starter_code=code_skeleton,
+        reference_code=reference_skeleton,
+    )
+    render_reference_answer(get_reference_code(MODULE_ID, 3, reference_skeleton))
 
     # 如果代码片段不存在，则保存到会话状态
     if 'step3' not in st.session_state.code_snippets:
@@ -399,10 +379,16 @@ print("标准化后各特征的方差（应接近1）：", np.var(X_scaled, axis
         except Exception as e:
             error_msg = str(e)
             st.error(f"执行错误：{str(e)}")
+            st.info(f"步骤要求检查：\n{ai_code_checker(3, user_code)}")
 
             # 调用AI生成错误分析
             with st.spinner("AI正在分析你的错误..."):
-                ai_analysis = analyze_code(step_num=3, user_code=user_code, error_msg=error_msg)
+                ai_analysis = analyze_code(
+                    step_num=3,
+                    user_code=user_code,
+                    error_msg=error_msg,
+                    reference_code=get_reference_code(MODULE_ID, 3, reference_skeleton),
+                )
 
             save_step_error_context(MODULE_ID, 3, user_code, error_msg, ai_analysis)
 
@@ -426,7 +412,7 @@ def step4():
     2. 实例化模型，设置聚类数n_clusters=3（与原始数据类别数一致）
     """)
 
-    code_skeleton = """
+    reference_skeleton = """
 # 导入KMeans模型
 from sklearn.cluster import KMeans
 
@@ -436,6 +422,14 @@ model = KMeans(n_clusters=3, random_state=42)
 # 查看模型参数
 print("模型参数：", model.get_params())
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 4, reference_skeleton)
+    ensure_step_code_defaults(
+        code_snippets_key="step4",
+        text_area_key="step4_code",
+        starter_code=code_skeleton,
+        reference_code=reference_skeleton,
+    )
+    render_reference_answer(get_reference_code(MODULE_ID, 4, reference_skeleton))
 
     # 如果代码片段不存在，则保存到会话状态
     if 'step4' not in st.session_state.code_snippets:
@@ -469,10 +463,16 @@ print("模型参数：", model.get_params())
         except Exception as e:
             error_msg = str(e)
             st.error(f"执行错误：{str(e)}")
+            st.info(f"步骤要求检查：\n{ai_code_checker(4, user_code)}")
 
             # 调用AI生成错误分析
             with st.spinner("AI正在分析你的错误..."):
-                ai_analysis = analyze_code(step_num=4, user_code=user_code, error_msg=error_msg)
+                ai_analysis = analyze_code(
+                    step_num=4,
+                    user_code=user_code,
+                    error_msg=error_msg,
+                    reference_code=get_reference_code(MODULE_ID, 4, reference_skeleton),
+                )
 
             save_step_error_context(MODULE_ID, 4, user_code, error_msg, ai_analysis)
 
@@ -501,7 +501,7 @@ def step5():
     2. 获取每个样本的聚类标签（0、1、2）
     """)
 
-    code_skeleton = """
+    reference_skeleton = """
 # 训练模型并获取聚类标签
 cluster_labels = model.fit_predict(X_scaled)  # 同时完成训练和预测
 
@@ -513,6 +513,14 @@ print("各聚类的样本数：", np.bincount(cluster_labels))  # 统计每个�
 print("原始标签分布：", np.bincount(true_labels))
 print("聚类标签分布：", np.bincount(cluster_labels))
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 5, reference_skeleton)
+    ensure_step_code_defaults(
+        code_snippets_key="step5",
+        text_area_key="step5_code",
+        starter_code=code_skeleton,
+        reference_code=reference_skeleton,
+    )
+    render_reference_answer(get_reference_code(MODULE_ID, 5, reference_skeleton))
 
     # 如果代码片段不存在，则保存到会话状态
     if 'step5' not in st.session_state.code_snippets:
@@ -553,10 +561,16 @@ print("聚类标签分布：", np.bincount(cluster_labels))
         except Exception as e:
             error_msg = str(e)
             st.error(f"执行错误：{str(e)}")
+            st.info(f"步骤要求检查：\n{ai_code_checker(5, user_code)}")
 
             # 调用AI生成错误分析
             with st.spinner("AI正在分析你的错误..."):
-                ai_analysis = analyze_code(step_num=5, user_code=user_code, error_msg=error_msg)
+                ai_analysis = analyze_code(
+                    step_num=5,
+                    user_code=user_code,
+                    error_msg=error_msg,
+                    reference_code=get_reference_code(MODULE_ID, 5, reference_skeleton),
+                )
 
             save_step_error_context(MODULE_ID, 5, user_code, error_msg, ai_analysis)
 
@@ -585,7 +599,7 @@ def step6():
     2. 用PCA降维到2D，可视化聚类结果与原始标签的对比
     """)
 
-    code_skeleton = """
+    reference_skeleton = """
 # 导入评估指标和PCA
 from sklearn.metrics import silhouette_score, calinski_harabasz_score
 from sklearn.decomposition import PCA
@@ -620,6 +634,14 @@ ax2.set_ylabel('PCA维度2')
 plt.tight_layout()
 plt.show()
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 6, reference_skeleton)
+    ensure_step_code_defaults(
+        code_snippets_key="step6",
+        text_area_key="step6_code",
+        starter_code=code_skeleton,
+        reference_code=reference_skeleton,
+    )
+    render_reference_answer(get_reference_code(MODULE_ID, 6, reference_skeleton))
     # 如果代码片段不存在，则保存到会话状态
     if 'step6' not in st.session_state.code_snippets:
         st.session_state.code_snippets['step6'] = code_skeleton
@@ -677,10 +699,16 @@ plt.show()
         except Exception as e:
             error_msg = str(e)
             st.error(f"执行错误：{str(e)}")
+            st.info(f"步骤要求检查：\n{ai_code_checker(6, user_code)}")
 
             # 调用AI生成错误分析
             with st.spinner("AI正在分析你的错误..."):
-                ai_analysis = analyze_code(step_num=6, user_code=user_code, error_msg=error_msg)
+                ai_analysis = analyze_code(
+                    step_num=6,
+                    user_code=user_code,
+                    error_msg=error_msg,
+                    reference_code=get_reference_code(MODULE_ID, 6, reference_skeleton),
+                )
 
             save_step_error_context(MODULE_ID, 6, user_code, error_msg, ai_analysis)
 
@@ -787,18 +815,42 @@ def step7():
 
 # 主程序
 def main():
+    isolate_module_session(MODULE_ID)
     # 初始化会话状态（确保每次进入都有正确的初始化）
     init_session_state({
-        'step': 0, #从0开始
-        'data': None, #特征数据
-        'feature_names': None, #特征名称
-        'X': None, #特征
-        'true_labels': None, #原始标签（用于后续对比）
-        'code_snippets': {}, #存储各步骤代码
-        'raw_dataset': None, #原始数据集
-        'cluster_labels': None, #聚类结果
-        'completed_steps': set([0]), #已完成的步骤集合（步骤0默认完成）
+        'step': 0,  # 从0开始
+        'data': None,  # 特征数据
+        'feature_names': None,  # 特征名称
+        'X': None,  # 特征
+        'true_labels': None,  # 原始标签（用于后续对比）
+        'code_snippets': {},  # 存储各步骤代码
+        'raw_dataset': None,  # 原始数据集
+        'cluster_labels': None,  # 聚类结果
+        'completed_steps': set([0]),  # 已完成的步骤集合（步骤0默认完成）
+        'X_scaled': None,
+        'silhouette': None,
+        'calinski_harabasz': None,
+        'X_pca': None,
     })
+    # 恢复本模块关键状态，保证刷新后仍可直接查看已完成/已尝试的步骤
+    restore_step_progress(
+        MODULE_ID,
+        base_keys=[
+            "step",
+            "data",
+            "feature_names",
+            "X",
+            "true_labels",
+            "cluster_labels",
+            "X_scaled",
+            "silhouette",
+            "calinski_harabasz",
+            "X_pca",
+            "code_snippets",
+            "completed_steps",
+        ]
+        + [f"step{i}_code" for i in range(1, 9)]
+    )
 
     st.title("📝 KMeans聚类分步编程训练")
     st.title("（葡萄酒数据集版）")
@@ -853,6 +905,26 @@ def main():
         step6()
     elif st.session_state.step == 7:
         step7()
+
+    # 持久化当前模块关键状态
+    persist_step_progress(
+        MODULE_ID,
+        base_keys=[
+            "step",
+            "data",
+            "feature_names",
+            "X",
+            "true_labels",
+            "cluster_labels",
+            "X_scaled",
+            "silhouette",
+            "calinski_harabasz",
+            "X_pca",
+            "code_snippets",
+            "completed_steps",
+        ]
+        + [f"step{i}_code" for i in range(1, 9)]
+    )
 
 
 if __name__ == "__main__":

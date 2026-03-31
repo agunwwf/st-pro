@@ -13,6 +13,10 @@ from collections import Counter
 from utils.api_deepseek import ask_ai_assistant  # 导入复用的AI助手函数
 from utils.session import init_session_state #初始化会话状态
 from utils.buttons import back_and_next_buttons
+from utils.progress_store import isolate_module_session, restore_step_progress, persist_step_progress
+from utils.step_validator import validate_step
+from config.step_content import get_reference_code, get_starter_code
+from utils.step_ui import ensure_step_code_defaults, render_reference_answer
 from utils.llm_helper import (
     analyze_code,
     save_step_error_context,
@@ -29,65 +33,7 @@ MODULE_ID = "bayes_text"
 
 # AI代码检查函数（适配贝叶斯文本分类）
 def ai_code_checker(step, user_code):
-    try:
-        if step == 1:
-            errors = []
-            if 'fetch_20newsgroups' not in user_code:
-                errors.append("❌ 请使用fetch_20newsgroups加载新闻数据集")
-            if 'subset=\'train\'' not in user_code or 'subset=\'test\'' not in user_code:
-                errors.append("❌ 请同时加载训练集(subset='train')和测试集(subset='test')")
-            if 'remove=(' not in user_code:
-                errors.append("❌ 请移除邮件头、签名和引用(remove=('headers', 'footers', 'quotes'))")
-            return "✅ 步骤1通过！" if not errors else "\n".join(errors)
-
-        elif step == 2:
-            errors = []
-            if 'X_train_text =' not in user_code or 'X_test_text =' not in user_code:
-                errors.append("❌ 请正确提取训练集和测试集文本数据")
-            if 'y_train =' not in user_code or 'y_test =' not in user_code:
-                errors.append("❌ 请正确提取训练集和测试集标签")
-            if 'Counter' not in user_code:
-                errors.append("❌ 请使用Counter统计类别分布")
-            return "✅ 步骤2通过！" if not errors else "\n".join(errors)
-
-        elif step == 3:
-            errors = []
-            if 'TfidfVectorizer' not in user_code:
-                errors.append("❌ 请使用TfidfVectorizer进行文本特征提取")
-            if 'fit_transform' not in user_code:
-                errors.append("❌ 训练集应使用fit_transform进行转换")
-            if 'transform' not in user_code:
-                errors.append("❌ 测试集应使用transform进行转换")
-            return "✅ 步骤3通过！" if not errors else "\n".join(errors)
-
-        elif step == 4:
-            errors = []
-            if 'MultinomialNB' not in user_code:
-                errors.append("❌ 请导入并使用MultinomialNB模型")
-            if 'model = MultinomialNB' not in user_code:
-                errors.append("❌ 请正确实例化MultinomialNB模型")
-            return "✅ 步骤4通过！" if not errors else "\n".join(errors)
-
-        elif step == 5:
-            errors = []
-            if 'model.fit' not in user_code:
-                errors.append("❌ 请使用model.fit训练模型")
-            if 'X_train_tfidf' not in user_code or 'y_train' not in user_code:
-                errors.append("❌ 训练时应使用X_train_tfidf和y_train")
-            return "✅ 步骤5通过！" if not errors else "\n".join(errors)
-
-        elif step == 6:
-            errors = []
-            if 'model.predict' not in user_code:
-                errors.append("❌ 请使用model.predict进行预测")
-            if 'accuracy_score' not in user_code:
-                errors.append("❌ 请计算准确率(accuracy_score)")
-            if 'classification_report' not in user_code:
-                errors.append("❌ 请生成分类报告(classification_report)")
-            return "✅ 步骤6通过！" if not errors else "\n".join(errors)
-
-    except Exception as e:
-        return f"⚠️ 代码错误：{str(e)}"
+    return validate_step(MODULE_ID, step, user_code)
 
 
 # 步骤0：项目说明与数据展示
@@ -144,7 +90,7 @@ def step1():
     """)
 
     # 代码骨架
-    code_skeleton = """
+    reference_skeleton = """
 # 导入数据集加载工具
 from sklearn.datasets import fetch_20newsgroups
 
@@ -180,6 +126,14 @@ print(f"训练集文本数：{len(newsgroups_train.data)}")
 print(f"测试集文本数：{len(newsgroups_test.data)}")
 print(f"新闻主题类别：{newsgroups_train.target_names}")
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 1, reference_skeleton)
+    ensure_step_code_defaults(
+        code_snippets_key="step1",
+        text_area_key="step1_code",
+        starter_code=code_skeleton,
+        reference_code=reference_skeleton,
+    )
+    render_reference_answer(get_reference_code(MODULE_ID, 1, reference_skeleton))
 
     # 如果代码片段不存在，则保存到会话状态
     if 'step1' not in st.session_state.code_snippets:
@@ -225,10 +179,16 @@ print(f"新闻主题类别：{newsgroups_train.target_names}")
         except Exception as e:
             error_msg=str(e)
             st.error(f"执行错误：{str(e)}")
+            st.info(f"步骤要求检查：\n{ai_code_checker(1, user_code)}")
 
             # 调用AI生成错误分析
             with st.spinner("AI正在分析你的错误..."):
-                ai_analysis = analyze_code(step_num=1, user_code=user_code, error_msg=error_msg)
+                ai_analysis = analyze_code(
+                    step_num=1,
+                    user_code=user_code,
+                    error_msg=error_msg,
+                    reference_code=get_reference_code(MODULE_ID, 1, reference_skeleton),
+                )
 
             save_step_error_context(MODULE_ID, 1, user_code, error_msg, ai_analysis)
 
@@ -264,7 +224,7 @@ def step2():
     """)
 
     # 代码骨架
-    code_skeleton = """
+    reference_skeleton = """
 import matplotlib.pyplot as plt
 from collections import Counter
 import numpy as np
@@ -311,6 +271,14 @@ plt.ylabel('样本数量')
 plt.tight_layout()
 plt.show()
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 2, reference_skeleton)
+    ensure_step_code_defaults(
+        code_snippets_key="step2",
+        text_area_key="step2_code",
+        starter_code=code_skeleton,
+        reference_code=reference_skeleton,
+    )
+    render_reference_answer(get_reference_code(MODULE_ID, 2, reference_skeleton))
     # 如果代码片段不存在，则保存到会话状态
     if 'step2' not in st.session_state.code_snippets:
         st.session_state.code_snippets['step2'] = code_skeleton
@@ -387,8 +355,14 @@ plt.show()
         except Exception as e:
             error_msg = str(e)
             st.error(f"执行错误：{str(e)}")
+            st.info(f"步骤要求检查：\n{ai_code_checker(2, user_code)}")
             with st.spinner("AI正在分析你的错误..."):
-                ai_analysis = analyze_code(step_num=2, user_code=user_code, error_msg=error_msg)
+                ai_analysis = analyze_code(
+                    step_num=2,
+                    user_code=user_code,
+                    error_msg=error_msg,
+                    reference_code=get_reference_code(MODULE_ID, 2, reference_skeleton),
+                )
             save_step_error_context(MODULE_ID, 2, user_code, error_msg, ai_analysis)
 
     render_step_qa_panel(MODULE_ID, 2, user_code)
@@ -418,7 +392,7 @@ def step3():
     """)
 
     # 代码骨架
-    code_skeleton = """
+    reference_skeleton = """
 # 导入TF-IDF特征提取工具
 from sklearn.feature_extraction.text import TfidfVectorizer
 
@@ -439,6 +413,14 @@ print(f"训练集TF-IDF矩阵形状：{X_train_tfidf.shape}")  # (样本数, 特
 print(f"TF-IDF词表大小：{len(tfidf_vectorizer.vocabulary_)}")
 print(f"前10个关键词示例：{list(tfidf_vectorizer.vocabulary_.keys())[:10]}")
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 3, reference_skeleton)
+    ensure_step_code_defaults(
+        code_snippets_key="step3",
+        text_area_key="step3_code",
+        starter_code=code_skeleton,
+        reference_code=reference_skeleton,
+    )
+    render_reference_answer(get_reference_code(MODULE_ID, 3, reference_skeleton))
 
     # 如果代码片段不存在，则保存到会话状态
     if 'step3' not in st.session_state.code_snippets:
@@ -483,8 +465,14 @@ print(f"前10个关键词示例：{list(tfidf_vectorizer.vocabulary_.keys())[:10
         except Exception as e:
             error_msg = str(e)
             st.error(f"执行错误：{str(e)}")
+            st.info(f"步骤要求检查：\n{ai_code_checker(3, user_code)}")
             with st.spinner("AI正在分析你的错误..."):
-                ai_analysis = analyze_code(step_num=3, user_code=user_code, error_msg=error_msg)
+                ai_analysis = analyze_code(
+                    step_num=3,
+                    user_code=user_code,
+                    error_msg=error_msg,
+                    reference_code=get_reference_code(MODULE_ID, 3, reference_skeleton),
+                )
             save_step_error_context(MODULE_ID, 3, user_code, error_msg, ai_analysis)
 
     render_step_qa_panel(MODULE_ID, 3, user_code)
@@ -513,7 +501,7 @@ def step4():
     3. 了解模型参数含义
     """)
 
-    code_skeleton = """
+    reference_skeleton = """
 # 导入多项式朴素贝叶斯模型
 from sklearn.naive_bayes import MultinomialNB
 
@@ -523,6 +511,14 @@ model = MultinomialNB(alpha=1.0)
 # 查看模型参数
 print("模型参数：", model.get_params())
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 4, reference_skeleton)
+    ensure_step_code_defaults(
+        code_snippets_key="step4",
+        text_area_key="step4_code",
+        starter_code=code_skeleton,
+        reference_code=reference_skeleton,
+    )
+    render_reference_answer(get_reference_code(MODULE_ID, 4, reference_skeleton))
 
     # 如果代码片段不存在，则保存到会话状态
     if 'step4' not in st.session_state.code_snippets:
@@ -557,8 +553,14 @@ print("模型参数：", model.get_params())
         except Exception as e:
             error_msg = str(e)
             st.error(f"执行错误：{str(e)}")
+            st.info(f"步骤要求检查：\n{ai_code_checker(4, user_code)}")
             with st.spinner("AI正在分析你的错误..."):
-                ai_analysis = analyze_code(step_num=4, user_code=user_code, error_msg=error_msg)
+                ai_analysis = analyze_code(
+                    step_num=4,
+                    user_code=user_code,
+                    error_msg=error_msg,
+                    reference_code=get_reference_code(MODULE_ID, 4, reference_skeleton),
+                )
             save_step_error_context(MODULE_ID, 4, user_code, error_msg, ai_analysis)
 
     render_step_qa_panel(MODULE_ID, 4, user_code)
@@ -586,7 +588,7 @@ def step5():
     2. 分析模型学到的主题-关键词关联
     """)
 
-    code_skeleton = """
+    reference_skeleton = """
 # 用训练集的TF-IDF特征与标签训练模型
 model.fit(X_train_tfidf, y_train)
 
@@ -604,6 +606,14 @@ for class_idx, class_name in enumerate(class_names):
         top_words.append(feature_names[idx])
     print(f"{class_name}：{top_words}")
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 5, reference_skeleton)
+    ensure_step_code_defaults(
+        code_snippets_key="step5",
+        text_area_key="step5_code",
+        starter_code=code_skeleton,
+        reference_code=reference_skeleton,
+    )
+    render_reference_answer(get_reference_code(MODULE_ID, 5, reference_skeleton))
 
     # 如果代码片段不存在，则保存到会话状态
     if 'step5' not in st.session_state.code_snippets:
@@ -650,8 +660,14 @@ for class_idx, class_name in enumerate(class_names):
         except Exception as e:
             error_msg = str(e)
             st.error(f"执行错误：{str(e)}")
+            st.info(f"步骤要求检查：\n{ai_code_checker(5, user_code)}")
             with st.spinner("AI正在分析你的错误..."):
-                ai_analysis = analyze_code(step_num=5, user_code=user_code, error_msg=error_msg)
+                ai_analysis = analyze_code(
+                    step_num=5,
+                    user_code=user_code,
+                    error_msg=error_msg,
+                    reference_code=get_reference_code(MODULE_ID, 5, reference_skeleton),
+                )
             save_step_error_context(MODULE_ID, 5, user_code, error_msg, ai_analysis)
 
     render_step_qa_panel(MODULE_ID, 5, user_code)
@@ -680,7 +696,7 @@ def step6():
     3. 可视化各主题的核心关键词
     """)
 
-    code_skeleton = """
+    reference_skeleton = """
 # 导入分类评估工具
 from sklearn.metrics import accuracy_score, classification_report
 import matplotlib.pyplot as plt
@@ -726,6 +742,14 @@ for i, class_name in enumerate(class_names):
 plt.tight_layout()
 plt.show()
     """.strip()
+    code_skeleton = get_starter_code(MODULE_ID, 6, reference_skeleton)
+    ensure_step_code_defaults(
+        code_snippets_key="step6",
+        text_area_key="step6_code",
+        starter_code=code_skeleton,
+        reference_code=reference_skeleton,
+    )
+    render_reference_answer(get_reference_code(MODULE_ID, 6, reference_skeleton))
 
     # 如果代码片段不存在，则保存到会话状态
     if 'step6' not in st.session_state.code_snippets:
@@ -810,8 +834,14 @@ plt.show()
         except Exception as e:
             error_msg = str(e)
             st.error(f"执行错误：{str(e)}")
+            st.info(f"步骤要求检查：\n{ai_code_checker(6, user_code)}")
             with st.spinner("AI正在分析你的错误..."):
-                ai_analysis = analyze_code(step_num=6, user_code=user_code, error_msg=error_msg)
+                ai_analysis = analyze_code(
+                    step_num=6,
+                    user_code=user_code,
+                    error_msg=error_msg,
+                    reference_code=get_reference_code(MODULE_ID, 6, reference_skeleton),
+                )
             save_step_error_context(MODULE_ID, 6, user_code, error_msg, ai_analysis)
 
     render_step_qa_panel(MODULE_ID, 6, user_code)
@@ -917,21 +947,43 @@ def step7():
 
 # 主程序
 def main():
+    isolate_module_session(MODULE_ID)
     # 初始化会话状态（确保每次进入都有正确的初始化）
     init_session_state({
-        'step': 0, #从0开始
-        'X_train_text': None, #训练集文本
-        'X_test_text': None, #测试集文本
-        'y_train': None, #训练集标签
-        'y_test': None, #测试集标签
-        'class_names': None, #类别名称
-        'X_train_tfidf': None, #训练集TF-IDF特征
-        'X_test_tfidf': None, #测试集TF-IDF特征
-        'model': None, #贝叶斯模型
-        'y_pred': None, #预测结果
-        'code_snippets': {}, #存储各步骤代码
-        'completed_steps': set([0]), #已完成的步骤集合（步骤0默认完成）
+        'step': 0,  # 从0开始
+        'X_train_text': None,  # 训练集文本
+        'X_test_text': None,  # 测试集文本
+        'y_train': None,  # 训练集标签
+        'y_test': None,  # 测试集标签
+        'class_names': None,  # 类别名称
+        'X_train_tfidf': None,  # 训练集TF-IDF特征
+        'X_test_tfidf': None,  # 测试集TF-IDF特征
+        'y_pred': None,  # 预测结果
+        'code_snippets': {},  # 存储各步骤代码
+        'completed_steps': set([0]),  # 已完成的步骤集合（步骤0默认完成）
+        'tfidf_vectorizer': None,
+        'accuracy': None,
     })
+    # 恢复本模块关键状态，保证刷新后仍可直接查看和运行已做过的步骤
+    restore_step_progress(
+        MODULE_ID,
+        base_keys=[
+            "step",
+            "X_train_text",
+            "X_test_text",
+            "y_train",
+            "y_test",
+            "class_names",
+            "X_train_tfidf",
+            "X_test_tfidf",
+            "y_pred",
+            "tfidf_vectorizer",
+            "accuracy",
+            "code_snippets",
+            "completed_steps",
+        ]
+        + [f"step{i}_code" for i in range(1, 9)]
+    )
 
     st.title("📝 朴素贝叶斯文本分类分步编程训练")
     st.write("基于20 Newsgroups数据集，用sklearn完成文本分类全流程，AI辅助检查代码")
@@ -986,6 +1038,28 @@ def main():
         step6()
     elif st.session_state.step == 7:
         step7()
+
+    # 持久化当前模块关键状态
+    persist_step_progress(
+        MODULE_ID,
+        base_keys=[
+            "step",
+            "X_train_text",
+            "X_test_text",
+            "y_train",
+            "y_test",
+            "class_names",
+            "X_train_tfidf",
+            "X_test_tfidf",
+            "model",
+            "y_pred",
+            "tfidf_vectorizer",
+            "accuracy",
+            "code_snippets",
+            "completed_steps",
+        ]
+        + [f"step{i}_code" for i in range(1, 9)]
+    )
 
 
 if __name__ == "__main__":

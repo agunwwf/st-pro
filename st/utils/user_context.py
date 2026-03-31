@@ -14,6 +14,19 @@ import streamlit as st
 BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://localhost:8080").rstrip("/")
 
 
+def _normalize_token(raw: Any) -> str | None:
+    """Normalize query token value to stable str/None."""
+    if raw is None:
+        return None
+    # Streamlit query params may return list-like values in some environments.
+    if isinstance(raw, (list, tuple)):
+        raw = raw[0] if raw else None
+    if raw is None:
+        return None
+    token = str(raw).strip()
+    return token or None
+
+
 def _fetch_me(token: str) -> dict[str, Any] | None:
     try:
         r = requests.get(
@@ -72,10 +85,18 @@ def _render_sidebar_avatar(avatar: str, nickname: str) -> None:
 
 
 def sync_user_context() -> None:
-    token = st.query_params.get("st_token") or st.query_params.get("token")
-    prev_token = st.session_state.get("_st_token")
+    token_from_query = _normalize_token(st.query_params.get("st_token") or st.query_params.get("token"))
+    prev_token = _normalize_token(st.session_state.get("_st_token"))
 
-    if token != prev_token:
+    # 容错策略：
+    # 1) URL 临时丢 token（刷新/重载）时，不要误判成“换账号”，沿用上一次 token；
+    # 2) 只有“明确拿到新 token 且与旧 token 不同”才清空 session（防止串号）。
+    if token_from_query is None and prev_token is not None:
+        token = prev_token
+    else:
+        token = token_from_query
+
+    if token is not None and prev_token is not None and token != prev_token:
         st.session_state.clear()
 
     st.session_state["_st_token"] = token
