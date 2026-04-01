@@ -1,79 +1,48 @@
 package com.example.admin.controller;
 
 import com.example.admin.entity.SysQuizScore;
-import com.example.admin.mapper.SysQuizScoreMapper;
-import lombok.Data;
+import com.example.admin.mapper.ScoreMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.web.bind.annotation.*;
-
-import java.time.LocalDateTime;
-import java.util.Set;
 
 @RestController
 @RequestMapping("/api/score")
 public class ScoreController {
 
     @Autowired
-    private SysQuizScoreMapper sysQuizScoreMapper;
+    private ScoreMapper scoreMapper;
 
-    // 合法的模块白名单
-    private static final Set<String> VALID_MODULES = Set.of(
-            "kmeans", "logistic", "neural", "linear", "text"
-    );
-
-    @GetMapping("/attempts")
-    public Result<Integer> getUserAttempts(
-            @RequestParam("moduleId") String moduleId,
-            @RequestAttribute("userId") Long userId
-    ) {
-        if (moduleId == null || !VALID_MODULES.contains(moduleId)) {
-            return Result.error("非法操作：系统不存在该教学模块！");
-        }
-
-        try {
-            // 调用 Mapper 里写的 countUserAttempts 方法
-            int attempts = sysQuizScoreMapper.countUserAttempts(userId, moduleId);
-            return Result.success(attempts); // 把真实的次数返回给前端
-        } catch (Exception e) {
-            e.printStackTrace();
-            return Result.error("查询答题次数失败");
-        }
+    // 1. ST 页面一加载，就会调这个接口看通道要不要锁定
+    @GetMapping("/check")
+    public Result checkCompleted(@RequestAttribute("userId") Long userId, @RequestParam String moduleId) {
+        int count = scoreMapper.checkIsCompleted(userId, moduleId);
+        // 如果 count > 0，说明做过了，返回 true 告诉 ST 锁定界面
+        return Result.success(count > 0); 
     }
 
+    // 2. ST 点击提交试卷时，调这个接口存档
     @PostMapping("/save")
-    public Result<?> saveQuizScore(
-            @RequestBody QuizSubmitDTO dto,
-            @RequestAttribute("userId") Long userId
-    ) {
-        if (dto.getModuleId() == null || !VALID_MODULES.contains(dto.getModuleId())) {
-            return Result.error("非法操作：系统不存在该教学模块！");
-        }
-
-        //校验该用户在该板块是否已经考了 3 次
-        int attempts = sysQuizScoreMapper.countUserAttempts(userId, dto.getModuleId());
-        if (attempts >= 3) {
-            return Result.error("答题失败：您已用完 3 次答题机会！");
-        }
-
+    public Result saveScore(@RequestBody SysQuizScore score, @RequestAttribute("userId") Long userId) {
+        score.setUserId(userId); // 强制绑定当前登录用户的 ID，防止越权
         try {
-            SysQuizScore scoreRecord = new SysQuizScore();
-            scoreRecord.setUserId(userId);
-            scoreRecord.setModuleId(dto.getModuleId());
-            scoreRecord.setScore(dto.getScore());
-            scoreRecord.setAnswersDetail(dto.getAnswersDetail()); //  保存错题明细
-            scoreRecord.setCreateTime(LocalDateTime.now());
-
-            sysQuizScoreMapper.insertScore(scoreRecord);
-            return Result.success("成绩同步成功");
+            scoreMapper.insertScore(score);
+            return Result.success("成绩已成功存档");
+        } catch (DuplicateKeyException e) {
+            // 如果学生试图抓包绕过前端重复提交，触发了数据库的 UNIQUE KEY，就会被这里无情拦截
+            return Result.error("您已提交过该模块的测验，请勿重复提交");
         } catch (Exception e) {
-            return Result.error("成绩保存失败...");
+            return Result.error("存档失败，服务器内部错误");
         }
     }
-}
 
-@Data
-class QuizSubmitDTO {
-    private String moduleId;
-    private Integer score;
-    private String answersDetail; // 传过来的 JSON 字符串
+    // 3. ST 锁定后读取首提成绩与答题详情（用于展示“成绩 + 标准答案 + 你的答案 + 解析”）
+    @GetMapping("/detail")
+    public Result getScoreDetail(@RequestAttribute("userId") Long userId, @RequestParam String moduleId) {
+        SysQuizScore detail = scoreMapper.getScoreDetail(userId, moduleId);
+        if (detail == null) {
+            return Result.error("未找到该模块成绩");
+        }
+        return Result.success(detail);
+    }
 }

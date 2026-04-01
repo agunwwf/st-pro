@@ -7,9 +7,8 @@ import java.time.LocalDateTime;
 public class SysQuizScore {
     private Long id;
     private Long userId;
-    private String moduleId;
+    private String moduleId; // ST 传过来的 kmeans 等
     private Integer score;
-    //用于接收并存储前端发来的错题/答题明细 JSON 字符串
-    private String answersDetail;
+    private String answersDetail; // ST 传过来的详尽病历 (JSON 字符串)
     private LocalDateTime createTime;
 }
