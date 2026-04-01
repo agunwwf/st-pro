@@ -126,3 +126,28 @@ CREATE TABLE IF NOT EXISTS `sys_quiz_score` (
     -- 同一个用户，同一个模块，在数据库里只允许有一条记录！
                                   UNIQUE KEY `uk_user_module` (`user_id`, `module_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='学生测验成绩与病历表';
+
+CREATE TABLE IF NOT EXISTS `sys_ai_chat` (
+                                             `id` bigint NOT NULL AUTO_INCREMENT,
+                                             `user_id` bigint NOT NULL COMMENT '用户ID',
+                                             `role` varchar(20) NOT NULL COMMENT '角色: user 或 assistant',
+                                             `content` text NOT NULL COMMENT '消息内容',
+                                             `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+                                             PRIMARY KEY (`id`),
+                                             KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `sys_ai_quiz_record` (
+                                                    `id` bigint NOT NULL AUTO_INCREMENT,
+                                                    `user_id` bigint NOT NULL COMMENT '用户ID',
+                                                    `module_id` varchar(32) NOT NULL COMMENT '关联模块',
+                                                    `title` varchar(100) NOT NULL COMMENT '练习标题',
+                                                    `weakness_analysis` text COMMENT 'AI弱点诊断',
+                                                    `quiz_json` JSON NOT NULL COMMENT 'AI生成的题目',
+                                                    `user_answers` JSON DEFAULT NULL COMMENT '用户答题',
+                                                    `score` int DEFAULT NULL COMMENT '得分',
+                                                    `status` tinyint DEFAULT '0' COMMENT '0-未完成, 1-已提交',
+                                                    `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+                                                    PRIMARY KEY (`id`),
+                                                    KEY `idx_user_module` (`user_id`, `module_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
