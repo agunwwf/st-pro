@@ -21,6 +21,14 @@ public class ForumPost {
     private String authorName;
     private String authorAvatar;
 
+    /** 仅接口返回：当前用户是否已点赞（不入库） */
+    private Boolean votedByMe;
+    /** 仅接口返回：当前用户是否已收藏（不入库） */
+    private Boolean starredByMe;
+
+    /** 仅列表查询：该用户最近一次浏览本帖的时间（来自 sys_forum_post_view） */
+    private LocalDateTime lastViewTime;
+
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -57,4 +65,13 @@ public class ForumPost {
 
     public String getAuthorAvatar() { return authorAvatar; }
     public void setAuthorAvatar(String authorAvatar) { this.authorAvatar = authorAvatar; }
+
+    public Boolean getVotedByMe() { return votedByMe; }
+    public void setVotedByMe(Boolean votedByMe) { this.votedByMe = votedByMe; }
+
+    public Boolean getStarredByMe() { return starredByMe; }
+    public void setStarredByMe(Boolean starredByMe) { this.starredByMe = starredByMe; }
+
+    public LocalDateTime getLastViewTime() { return lastViewTime; }
+    public void setLastViewTime(LocalDateTime lastViewTime) { this.lastViewTime = lastViewTime; }
 }

@@ -1,5 +1,5 @@
 <template>
-  <div class="forum-container" ref="scrollContainer">
+  <div class="forum-container" ref="scrollContainer" :class="{ dark: isDark }">
     <!-- 高级感头部 -->
     <header class="forum-header" :class="{ 'header-scrolled': isScrolled }">
       <div class="header-left">
@@ -11,10 +11,10 @@
           <a
               v-for="item in navItems"
               :key="item.id"
-              :href="'#' + item.id"
+              :href="item.route || '#' + item.id"
               class="nav-link"
-              :class="{ active: activeSection === item.id }"
-              @click.prevent="scrollToSection(item.id)"
+              :class="{ active: item.route ? (route.path === item.route) : (activeSection === item.id) }"
+              @click.prevent="item.route ? router.push(item.route) : scrollToSection(item.id)"
           >
             {{ item.label }}
           </a>
@@ -42,6 +42,7 @@
           </div>
           <template #dropdown>
             <el-dropdown-menu class="forum-dropdown">
+              <el-dropdown-item command="my-records">我的论坛记录</el-dropdown-item>
               <el-dropdown-item command="dashboard">返回后台</el-dropdown-item>
               <el-dropdown-item command="profile">个人信息</el-dropdown-item>
               <el-dropdown-item command="settings">设置</el-dropdown-item>
@@ -62,8 +63,23 @@
           </div>
           <div class="cards-grid">
             <!-- 实时展示发布的帖子 -->
-            <div v-for="post in getPostsBySection('knowledge')" :key="post.id" class="forum-card machine-learning-card">
-              <div class="card-inner">
+            <div
+              v-for="post in getPostsBySection('knowledge')"
+              :key="post.id"
+              class="forum-card machine-learning-card"
+              :class="{ 'has-cover': !!post.cover }"
+              :style="cardCoverStyle(post)"
+            >
+              <div class="card-inner card-interactive" @click="openPostDetail(post)">
+                <button
+                  v-if="isPostAuthor(post)"
+                  type="button"
+                  class="post-delete-fab"
+                  title="删除帖子"
+                  @click.stop="confirmDeletePost(post)"
+                >
+                  <el-icon><Delete /></el-icon>
+                </button>
                 <div class="card-header-tags">
                   <el-tag size="small" effect="light" round class="topic-tag">✨ 知识分享</el-tag>
                 </div>
@@ -124,7 +140,7 @@
             <!-- 占位卡片 -->
             <template v-if="postsLoaded">
               <div
-                  v-for="i in (15 - Math.max(1, getPostsBySection('knowledge').length))"
+                  v-for="i in sectionGridFillCount('knowledge')"
                   :key="'placeholder-' + i"
                   class="forum-card"
               >
@@ -133,8 +149,8 @@
             </template>
           </div>
           <div class="view-more-container">
-            <button class="view-more-btn" @click="handleViewMore">
-              查看更多 <el-icon class="arrow-icon"><ArrowRight /></el-icon>
+            <button type="button" class="view-more-btn" @click="goToCreateWithSection('knowledge')">
+              前往发帖 · 知识分享 <el-icon class="arrow-icon"><ArrowRight /></el-icon>
             </button>
           </div>
         </div>
@@ -146,8 +162,23 @@
             <p class="section-display-desc">有问题？来这里寻找答案</p>
           </div>
           <div class="cards-grid">
-            <div v-for="post in getPostsBySection('q-a')" :key="post.id" class="forum-card machine-learning-card">
-              <div class="card-inner">
+            <div
+              v-for="post in getPostsBySection('q-a')"
+              :key="post.id"
+              class="forum-card machine-learning-card"
+              :class="{ 'has-cover': !!post.cover }"
+              :style="cardCoverStyle(post)"
+            >
+              <div class="card-inner card-interactive" @click="openPostDetail(post)">
+                <button
+                  v-if="isPostAuthor(post)"
+                  type="button"
+                  class="post-delete-fab"
+                  title="删除帖子"
+                  @click.stop="confirmDeletePost(post)"
+                >
+                  <el-icon><Delete /></el-icon>
+                </button>
                 <div class="card-header-tags">
                   <el-tag size="small" effect="light" round class="topic-tag">❓ 问答</el-tag>
                 </div>
@@ -174,9 +205,51 @@
                 </div>
               </div>
             </div>
-            <div v-if="postsLoaded && getPostsBySection('q-a').length === 0" class="forum-card">
-              <div class="card-placeholder">暂无问答</div>
+            <div
+              v-if="postsLoaded && getPostsBySection('q-a').length === 0"
+              class="forum-card machine-learning-card"
+            >
+              <div class="card-inner">
+                <div class="card-header-tags">
+                  <el-tag size="small" effect="light" round class="topic-tag">❓ 问答</el-tag>
+                </div>
+                <h3 class="card-title">监督学习与无监督学习，核心区别是什么？</h3>
+                <div class="card-body">
+                  <p class="card-text">
+                    <span class="author-name">课程助教：</span>
+                    有「标准答案」的数据上训练，是监督学习；只有数据、让模型自己发现簇或规律，多是无监督。选对场景，比死记定义更重要。
+                    <span class="read-more-link">欢迎发帖追问 <el-icon><ArrowDown /></el-icon></span>
+                  </p>
+                </div>
+                <div class="card-footer-actions">
+                  <div class="vote-actions">
+                    <div class="vote-btn-group">
+                      <div class="vote-btn up">
+                        <el-icon><CaretTop /></el-icon> 赞同 96
+                      </div>
+                    </div>
+                  </div>
+                  <div class="social-actions">
+                    <span class="action-item"><el-icon><ChatDotRound /></el-icon> 24</span>
+                    <span class="action-item"><el-icon><Star /></el-icon> 18</span>
+                  </div>
+                </div>
+              </div>
             </div>
+            <template v-if="postsLoaded">
+              <div
+                v-for="i in sectionGridFillCount('q-a')"
+                :key="'qa-ph-' + i"
+                class="forum-card"
+              >
+                <div class="card-placeholder">Q&A {{ i }}</div>
+              </div>
+            </template>
+          </div>
+          <div class="view-more-container">
+            <button type="button" class="view-more-btn" @click="goToCreateWithSection('q-a')">
+              去问答区发帖 <el-icon class="arrow-icon"><ArrowRight /></el-icon>
+            </button>
           </div>
         </div>
       </section>
@@ -187,8 +260,23 @@
             <p class="section-display-desc">互帮互助，共同进步</p>
           </div>
           <div class="cards-grid">
-            <div v-for="post in getPostsBySection('help')" :key="post.id" class="forum-card machine-learning-card">
-              <div class="card-inner">
+            <div
+              v-for="post in getPostsBySection('help')"
+              :key="post.id"
+              class="forum-card machine-learning-card"
+              :class="{ 'has-cover': !!post.cover }"
+              :style="cardCoverStyle(post)"
+            >
+              <div class="card-inner card-interactive" @click="openPostDetail(post)">
+                <button
+                  v-if="isPostAuthor(post)"
+                  type="button"
+                  class="post-delete-fab"
+                  title="删除帖子"
+                  @click.stop="confirmDeletePost(post)"
+                >
+                  <el-icon><Delete /></el-icon>
+                </button>
                 <div class="card-header-tags">
                   <el-tag size="small" effect="light" round class="topic-tag">🆘 求助</el-tag>
                 </div>
@@ -215,9 +303,51 @@
                 </div>
               </div>
             </div>
-            <div v-if="postsLoaded && getPostsBySection('help').length === 0" class="forum-card">
-              <div class="card-placeholder">暂无求助</div>
+            <div
+              v-if="postsLoaded && getPostsBySection('help').length === 0"
+              class="forum-card machine-learning-card"
+            >
+              <div class="card-inner">
+                <div class="card-header-tags">
+                  <el-tag size="small" effect="light" round class="topic-tag">🆘 求助</el-tag>
+                </div>
+                <h3 class="card-title">Spring Boot 启动报数据源错误，该从哪几步排查？</h3>
+                <div class="card-body">
+                  <p class="card-text">
+                    <span class="author-name">互助小编：</span>
+                    先看配置里的 URL / 用户名密码是否与环境一致，再确认 MySQL 是否启动、库名是否存在；把完整报错栈贴出来，大家更容易帮到你。
+                    <span class="read-more-link">发帖附上日志更易解决 <el-icon><ArrowDown /></el-icon></span>
+                  </p>
+                </div>
+                <div class="card-footer-actions">
+                  <div class="vote-actions">
+                    <div class="vote-btn-group">
+                      <div class="vote-btn up">
+                        <el-icon><CaretTop /></el-icon> 赞同 54
+                      </div>
+                    </div>
+                  </div>
+                  <div class="social-actions">
+                    <span class="action-item"><el-icon><ChatDotRound /></el-icon> 31</span>
+                    <span class="action-item"><el-icon><Star /></el-icon> 12</span>
+                  </div>
+                </div>
+              </div>
             </div>
+            <template v-if="postsLoaded">
+              <div
+                v-for="i in sectionGridFillCount('help')"
+                :key="'help-ph-' + i"
+                class="forum-card"
+              >
+                <div class="card-placeholder">HELP {{ i }}</div>
+              </div>
+            </template>
+          </div>
+          <div class="view-more-container">
+            <button type="button" class="view-more-btn" @click="goToCreateWithSection('help')">
+              发布求助帖 <el-icon class="arrow-icon"><ArrowRight /></el-icon>
+            </button>
           </div>
         </div>
       </section>
@@ -228,8 +358,23 @@
             <p class="section-display-desc">记录点滴，沉淀知识</p>
           </div>
           <div class="cards-grid">
-            <div v-for="post in getPostsBySection('notes')" :key="post.id" class="forum-card machine-learning-card">
-              <div class="card-inner">
+            <div
+              v-for="post in getPostsBySection('notes')"
+              :key="post.id"
+              class="forum-card machine-learning-card"
+              :class="{ 'has-cover': !!post.cover }"
+              :style="cardCoverStyle(post)"
+            >
+              <div class="card-inner card-interactive" @click="openPostDetail(post)">
+                <button
+                  v-if="isPostAuthor(post)"
+                  type="button"
+                  class="post-delete-fab"
+                  title="删除帖子"
+                  @click.stop="confirmDeletePost(post)"
+                >
+                  <el-icon><Delete /></el-icon>
+                </button>
                 <div class="card-header-tags">
                   <el-tag size="small" effect="light" round class="topic-tag">📝 笔记</el-tag>
                 </div>
@@ -256,9 +401,51 @@
                 </div>
               </div>
             </div>
-            <div v-if="postsLoaded && getPostsBySection('notes').length === 0" class="forum-card">
-              <div class="card-placeholder">暂无笔记</div>
+            <div
+              v-if="postsLoaded && getPostsBySection('notes').length === 0"
+              class="forum-card machine-learning-card"
+            >
+              <div class="card-inner">
+                <div class="card-header-tags">
+                  <el-tag size="small" effect="light" round class="topic-tag">📝 笔记</el-tag>
+                </div>
+                <h3 class="card-title">一页纸笔记：梯度下降在优化什么？</h3>
+                <div class="card-body">
+                  <p class="card-text">
+                    <span class="author-name">学习记录：</span>
+                    损失函数像「误差高度」，梯度指向最陡的上坡，我们反着走一小步（学习率），就能慢慢走到更低的误差——这就是迭代更新参数。
+                    <span class="read-more-link">记下你的版本 <el-icon><ArrowDown /></el-icon></span>
+                  </p>
+                </div>
+                <div class="card-footer-actions">
+                  <div class="vote-actions">
+                    <div class="vote-btn-group">
+                      <div class="vote-btn up">
+                        <el-icon><CaretTop /></el-icon> 赞同 72
+                      </div>
+                    </div>
+                  </div>
+                  <div class="social-actions">
+                    <span class="action-item"><el-icon><ChatDotRound /></el-icon> 8</span>
+                    <span class="action-item"><el-icon><Star /></el-icon> 41</span>
+                  </div>
+                </div>
+              </div>
             </div>
+            <template v-if="postsLoaded">
+              <div
+                v-for="i in sectionGridFillCount('notes')"
+                :key="'notes-ph-' + i"
+                class="forum-card"
+              >
+                <div class="card-placeholder">NOTE {{ i }}</div>
+              </div>
+            </template>
+          </div>
+          <div class="view-more-container">
+            <button type="button" class="view-more-btn" @click="goToCreateWithSection('notes')">
+              写学习笔记 <el-icon class="arrow-icon"><ArrowRight /></el-icon>
+            </button>
           </div>
         </div>
       </section>
@@ -268,19 +455,21 @@
 
 <script setup>
 import { computed, ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { useRoute, useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useDark, useToggle } from '@vueuse/core'
 import {
   Search, Bell, EditPen, Plus, Moon, Sunny, ArrowRight,
-  CaretTop, CaretBottom, ChatDotRound, Star, ArrowDown, CollectionTag
+  CaretTop, CaretBottom, ChatDotRound, Star, ArrowDown, CollectionTag, Delete
 } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 
 // 引入外部样式
 import './Forum.scss'
+import { resolveMediaUrl } from './forumUtils'
 
 const router = useRouter()
+const route = useRoute()
 const scrollContainer = ref(null)
 const isScrolled = ref(false)
 const activeSection = ref('section-a')
@@ -288,11 +477,42 @@ const activeSection = ref('section-a')
 const isDark = useDark()
 const toggleDark = useToggle(isDark)
 
+/** 有封面时卡片背景为封面图 + 渐变遮罩，保证文字可读 */
+const cardCoverStyle = (post) => {
+  const c = post?.cover
+  if (c == null || !String(c).trim()) return {}
+  const url = resolveMediaUrl(String(c).trim())
+  if (!url) return {}
+  const overlay = isDark.value
+    ? 'linear-gradient(180deg, rgba(10,10,12,0.9) 0%, rgba(10,10,12,0.65) 38%, rgba(10,10,12,0.92) 100%)'
+    : 'linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.68) 35%, rgba(255,255,255,0.93) 100%)'
+  return {
+    backgroundImage: `${overlay}, url(${url})`,
+    backgroundSize: 'cover, cover',
+    backgroundPosition: 'center, center'
+  }
+}
+
+const SECTION_ROUTE_KEYS = ['knowledge', 'q-a', 'help', 'notes']
+
+/** 与知识区一致：补足网格占位（含 1 张示例卡时的槽位） */
+const sectionGridFillCount = (sectionKey) => {
+  const len = getPostsBySection(sectionKey).length
+  if (!postsLoaded.value) return 0
+  return Math.max(0, 15 - Math.max(1, len))
+}
+
+const goToCreateWithSection = (section) => {
+  const s = SECTION_ROUTE_KEYS.includes(section) ? section : 'knowledge'
+  router.push({ path: '/forum/create', query: { section: s } })
+}
+
 const navItems = [
   { id: 'section-a', label: '知识分享' },
   { id: 'section-b', label: '问答区域' },
   { id: 'section-c', label: '求助区域' },
-  { id: 'section-d', label: '笔记区域' }
+  { id: 'section-d', label: '笔记区域' },
+  { id: 'my-records', label: '我的记录', route: '/forum/my' }
 ]
 
 // 实时帖子数据
@@ -300,9 +520,16 @@ const realTimePosts = ref([])
 const postsLoaded = ref(false)
 let socket = null
 
-const loadPosts = async () => {
+/**
+ * @param {{ silent?: boolean }} options
+ * silent：不将 postsLoaded 置为 false，避免列表整块消失造成闪烁（点赞/收藏/WebSocket 等）
+ */
+const loadPosts = async (options = {}) => {
+  const silent = options.silent === true
   try {
-    postsLoaded.value = false
+    if (!silent) {
+      postsLoaded.value = false
+    }
     const res = await request.get('/api/forum/posts')
     const data = res.data
     if (data?.code === 200) {
@@ -325,9 +552,8 @@ const setupSocket = () => {
   socket.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data)
-      if (data.type === 'new_post' || data.type === 'post_update') {
-        // 收到通知，刷新列表
-        loadPosts()
+      if (data.type === 'new_post' || data.type === 'post_update' || data.type === 'post_deleted' || data.type === 'post_comment') {
+        loadPosts({ silent: true })
       }
     } catch (e) {
       console.error('解析消息失败', e)
@@ -366,8 +592,11 @@ const handleVote = async (post) => {
       type: 'vote'
     })
     const data = res.data
-    if (data?.code !== 200) ElMessage.error(data?.msg)
-    await loadPosts()
+    if (data?.code !== 200) {
+      ElMessage.error(data?.msg || '操作失败')
+      return
+    }
+    await loadPosts({ silent: true })
   } catch (err) {
     console.error('Vote error', err)
   }
@@ -389,7 +618,7 @@ const handleStar = async (post) => {
     const data = res.data
     if (data?.code === 200) {
       ElMessage.success('操作成功')
-      await loadPosts()
+      await loadPosts({ silent: true })
     } else {
       ElMessage.error(data?.msg)
     }
@@ -411,6 +640,52 @@ const scrollToTop = () => {
 
 const goToCreatePost = () => {
   router.push('/forum/create')
+}
+
+const openPostDetail = (post) => {
+  if (!post?.id) return
+  router.push({ name: 'ForumPostDetail', params: { id: String(post.id) } })
+}
+
+const isPostAuthor = (post) => {
+  if (!currentUser.value?.id || post?.userId == null) return false
+  return Number(currentUser.value.id) === Number(post.userId)
+}
+
+const confirmDeletePost = async (post) => {
+  if (!post?.id) return
+  try {
+    await ElMessageBox.confirm(
+      `确定删除「${(post.title || '').slice(0, 40)}」吗？删除后无法恢复。`,
+      '删除帖子',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger'
+      }
+    )
+  } catch {
+    return
+  }
+  if (!currentUser.value?.id) {
+    ElMessage.warning('请先登录')
+    return
+  }
+  try {
+    const res = await request.delete(`/api/forum/posts/${post.id}`, {
+      params: { userId: currentUser.value.id }
+    })
+    if (res.data?.code === 200) {
+      ElMessage.success('已删除')
+      await loadPosts({ silent: true })
+    } else {
+      ElMessage.error(res.data?.msg || '删除失败')
+    }
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('删除失败')
+  }
 }
 
 const scrollToSection = (id) => {
@@ -444,6 +719,8 @@ const handleCommand = (command) => {
     localStorage.removeItem('user')
     router.push('/login')
     ElMessage.success('已退出登录')
+  } else if (command === 'my-records') {
+    router.push('/forum/my')
   } else if (command === 'profile') {
     router.push('/profile')
   } else if (command === 'dashboard') {
@@ -451,10 +728,6 @@ const handleCommand = (command) => {
   } else {
     ElMessage.info(`点击了 ${command} (占位)`)
   }
-}
-
-const handleViewMore = () => {
-  ElMessage.info('查看更多功能开发中...')
 }
 
 onMounted(() => {
@@ -526,7 +799,9 @@ onUnmounted(() => {
 
     .section-placeholder { color: #ffffff; }
     .forum-section { border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
-    .forum-section.section-b, .forum-section.section-d { background: rgba(255,255,255,0.02); }
+    .forum-section.section-b,
+    .forum-section.section-c,
+    .forum-section.section-d { background: rgba(255,255,255,0.02); }
   }
 }
 
@@ -670,7 +945,7 @@ onUnmounted(() => {
 
   &.section-a { background: transparent; }
   &.section-b { background: rgba(0,0,0,0.02); }
-  &.section-c { background: transparent; }
+  &.section-c { background: rgba(0,0,0,0.02); }
   &.section-d { background: rgba(0,0,0,0.02); }
 }
 
@@ -680,5 +955,44 @@ onUnmounted(() => {
   overflow: hidden;
   border: none !important;
   box-shadow: 0 10px 30px rgba(0,0,0,0.1) !important;
+}
+
+.card-interactive {
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+  &:hover {
+    transform: translateY(-3px);
+  }
+}
+
+.post-delete-fab {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 5;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: rgba(220, 38, 38, 0.12);
+  color: #dc2626;
+  transition: background 0.2s ease, transform 0.2s ease;
+  &:hover {
+    background: rgba(220, 38, 38, 0.22);
+    transform: scale(1.06);
+  }
+}
+
+.forum-container.dark .post-delete-fab {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+  &:hover {
+    background: rgba(248, 113, 113, 0.28);
+  }
 }
 </style>

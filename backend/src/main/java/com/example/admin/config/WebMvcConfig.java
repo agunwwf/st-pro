@@ -7,6 +7,11 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 
@@ -22,9 +27,19 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // 将 /uploads/** 映射到项目根目录下的 uploads 文件夹
-        registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:uploads" + "/");
+        Path uploadDir = Paths.get(System.getProperty("user.dir"), "uploads").toAbsolutePath().normalize();
+        try {
+            if (!Files.exists(uploadDir)) {
+                Files.createDirectories(uploadDir);
+            }
+        } catch (IOException ignored) {
+            // 目录创建失败时仍注册路径，上传接口会再次尝试创建
+        }
+        String loc = uploadDir.toUri().toString();
+        if (!loc.endsWith("/")) {
+            loc += "/";
+        }
+        registry.addResourceHandler("/uploads/**").addResourceLocations(loc);
     }
 
     @Override
