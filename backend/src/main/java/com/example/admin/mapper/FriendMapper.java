@@ -11,7 +11,7 @@ public interface FriendMapper {
     @Insert("INSERT INTO sys_friend(user_id, friend_id, status, create_time) VALUES(#{userId}, #{friendId}, 0, NOW())")
     int insertRequest(Friend friend);
 
-    // 同意好友申请（兼容两种方向：A->B 或 B->A）
+    // 同意好友申请
     @Update("UPDATE sys_friend SET status = 1 WHERE (user_id = #{userId} AND friend_id = #{friendId}) OR (user_id = #{friendId} AND friend_id = #{userId})")
     int acceptRequest(@Param("userId") Long userId, @Param("friendId") Long friendId);
 

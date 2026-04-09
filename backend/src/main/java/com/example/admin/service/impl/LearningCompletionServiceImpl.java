@@ -1,6 +1,7 @@
 package com.example.admin.service.impl;
 
 import com.example.admin.entity.LearningCompletion;
+import com.example.admin.event.SkillTreeUpdateEvent;
 import com.example.admin.mapper.LearningCompletionMapper;
 import com.example.admin.service.LearningCompletionService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +22,7 @@ public class LearningCompletionServiceImpl implements LearningCompletionService 
 
     @Autowired
     private LearningCompletionMapper learningCompletionMapper;
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     @Override
     public void recordCompletion(Long userId, String moduleId, String kind) {
@@ -38,6 +40,7 @@ public class LearningCompletionServiceImpl implements LearningCompletionService 
         row.setModuleId(mid);
         row.setKind(k);
         learningCompletionMapper.upsert(row);
+        eventPublisher.publishEvent(new SkillTreeUpdateEvent(this, userId));
     }
 
     @Override

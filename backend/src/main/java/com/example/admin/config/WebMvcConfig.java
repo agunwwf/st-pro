@@ -7,6 +7,9 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 
@@ -22,9 +25,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // 将 /uploads/** 映射到项目根目录下的 uploads 文件夹
+        // 将 /uploads/** 映射到 uploads 绝对路径，避免运行目录差异导致 404
+        Path uploadDir = Paths.get(System.getProperty("user.dir"), "uploads").toAbsolutePath();
+        String location = uploadDir.toUri().toString();
         registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:uploads" + "/");
+                .addResourceLocations(location);
     }
 
     @Override

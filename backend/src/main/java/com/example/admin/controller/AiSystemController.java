@@ -40,7 +40,6 @@ public class AiSystemController {
         if (detailJson == null || detailJson.trim().isEmpty()) {
             return Result.error("您尚未完成该模块的测验，请先前往学习并提交。");
         }
-        // 避免命中 Result.success(String msg) 重载：这里显式把内容放到 data
         Result<String> r = new Result<>();
         r.setCode(200);
         r.setMsg("操作成功");
@@ -49,7 +48,7 @@ public class AiSystemController {
     }
 
     /**
-     * 直接在后端调用大模型（像右下角 AiChat.vue 一样），避免前端缺少 VITE_DEEPSEEK_API_KEY / CORS。
+     * 直接在后端调用大模型
      * Body: { moduleId: "kmeans", moduleName: "K-Means 聚类" }
      */
     @PostMapping("/analysis/run")

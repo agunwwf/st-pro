@@ -6,6 +6,7 @@ import com.example.admin.entity.User;
 import com.example.admin.mapper.FriendMapper;
 import com.example.admin.mapper.MessageMapper;
 import com.example.admin.mapper.UserMapper;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -14,6 +15,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -70,7 +72,8 @@ public class ChatController {
 
     // 3. 获取好友申请列表
     @GetMapping("/friend/requests")
-    public Result getRequests(@RequestParam Long userId) {
+    public Result getRequests(HttpServletRequest request) {
+        Long userId = Long.valueOf(request.getAttribute("userId").toString());
         return Result.success(friendMapper.getFriendRequests(userId));
     }
 
@@ -100,7 +103,8 @@ public class ChatController {
 
     // 5. 获取我的好友列表
     @GetMapping("/friends")
-    public Result getFriends(@RequestParam Long userId) {
+    public Result getFriends(HttpServletRequest request) {
+        Long userId = Long.valueOf(request.getAttribute("userId").toString());
         return Result.success(friendMapper.getMyFriends(userId));
     }
 
@@ -124,7 +128,46 @@ public class ChatController {
         return Result.success(messageMapper.getHistory(user1, user2));
     }
 
-    // 7. 文件上传（图片/文件），供聊天使用
+    // 6.1 保存消息（落库），刷新后仍可读到历史记录
+    @PostMapping("/message/save")
+    public Result saveMessage(@RequestBody Map<String, Object> payload, HttpServletRequest request) {
+        String fromUsername = (String) request.getAttribute("username");
+        if (fromUsername == null || fromUsername.trim().isEmpty()) {
+            return Result.error("请先登录");
+        }
+
+        Object toObj = payload.get("toUser");
+        Object contentObj = payload.get("content");
+        Object msgTypeObj = payload.get("msgType");
+        Object fileNameObj = payload.get("fileName");
+
+        if (toObj == null || contentObj == null) {
+            return Result.error("不能为空");
+        }
+
+        String toUser = toObj.toString();
+        String content = contentObj.toString();
+        String msgType = msgTypeObj == null ? "text" : msgTypeObj.toString();
+        String fileName = fileNameObj == null ? null : fileNameObj.toString();
+
+        if (toUser.trim().isEmpty() || content.trim().isEmpty()) {
+            return Result.error("不能为空");
+        }
+
+        Message msg = new Message();
+        msg.setFromUser(fromUsername.trim());
+        msg.setToUser(toUser.trim());
+        msg.setContent(content);
+        msg.setMsgType(msgType);
+        msg.setFileName(fileName);
+        msg.setCreateTime(LocalDateTime.now());
+
+        messageMapper.insert(msg);
+        return Result.success("ok");
+    }
+
+
+    // 7. 文件上传（生成 API 访问链接，而不是物理静态链接）
     @PostMapping("/upload")
     public Result<Map<String, String>> upload(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
@@ -132,31 +175,25 @@ public class ChatController {
         }
 
         try {
-            // 上传目录：项目根目录下的 uploads（使用绝对路径更稳妥）
+            // 还是存在本地 uploads 文件夹
             Path uploadDir = Paths.get(System.getProperty("user.dir"), "uploads");
             if (!Files.exists(uploadDir)) {
                 Files.createDirectories(uploadDir);
             }
 
             String originalName = file.getOriginalFilename();
-            if (originalName == null) {
-                originalName = "unknown";
-            }
+            String ext = originalName != null && originalName.lastIndexOf('.') >= 0
+                    ? originalName.substring(originalName.lastIndexOf('.')) : "";
 
-            String ext = "";
-            int dot = originalName.lastIndexOf('.');
-            if (dot >= 0) {
-                ext = originalName.substring(dot);
-            }
-
+            // 重新命名防止冲突
             String filename = UUID.randomUUID().toString().replace("-", "") + ext;
             Path target = uploadDir.resolve(filename);
 
-            // 使用 NIO 拷贝，兼容性更好
             Files.copy(file.getInputStream(), target);
 
-            // 返回给前端用于访问的 URL
-            String url = "/uploads/" + filename;
+            // ：返回的不再是静态路径，而是一个 API 接口地址
+            String url = "/api/chat/file/" + filename;
+
             Map<String, String> data = new HashMap<>();
             data.put("url", url);
             data.put("fileName", originalName);
@@ -165,6 +202,35 @@ public class ChatController {
         } catch (IOException e) {
             e.printStackTrace();
             return Result.error("文件上传失败: " + e.getMessage());
+        }
+    }
+    // 8. 流式读取文件接口 (前端 <img> 标签的 src 就填这个接口)
+    @GetMapping("/file/{fileName}")
+    public void getFile(@PathVariable String fileName, jakarta.servlet.http.HttpServletResponse response) {
+        Path filePath = Paths.get(System.getProperty("user.dir"), "uploads", fileName);
+
+        // 如果文件不存在，返回 404
+        if (!Files.exists(filePath)) {
+            response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+
+        try {
+            // 自动推断文件类型（比如 image/png, application/pdf）
+            String contentType = Files.probeContentType(filePath);
+            if (contentType == null) {
+                contentType = "application/octet-stream"; // 默认二进制流
+            }
+            response.setContentType(contentType);
+
+            // 加上缓存控制，让浏览器缓存图片，不用每次打开聊天记录都重新下载，提升体验
+            response.setHeader("Cache-Control", "max-age=864000");
+
+            // 把硬盘里的文件变成流，直接塞进 HTTP 响应里冲给前端
+            Files.copy(filePath, response.getOutputStream());
+            response.getOutputStream().flush();
+        } catch (IOException e) {
+            response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
     }
 }

@@ -13,7 +13,6 @@ public interface MessageMapper {
             "VALUES(#{fromUser}, #{toUser}, #{content}, #{msgType}, #{fileName}, #{createTime})")
     int insert(Message message);
 
-    // 获取两人之间的聊天记录
     @Select("SELECT id, from_user as fromUser, to_user as toUser, content, msg_type as msgType, file_name as fileName, create_time as createTime " +
             "FROM sys_message " +
             "WHERE (from_user = #{user1} AND to_user = #{user2}) " +

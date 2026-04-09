@@ -54,7 +54,7 @@ const switchToQuiz = () => {
 
     <main class="main-content">
       <Transition name="fade-slide" mode="out-in">
-        <div :key="activeTab">
+        <div class="tab-panel" :key="activeTab">
           <AIChatTutor v-if="activeTab === 'tutor'" @startQuiz="switchToQuiz" />
           <AIQuizSystem v-else />
         </div>
@@ -73,11 +73,14 @@ const switchToQuiz = () => {
   --accent-color: #000;
   --card-bg: #fff;
 
-  min-h: 100vh;
+  height: 100%;
+  min-height: 100%;
   background-color: var(--bg-color);
   color: var(--text-color);
   transition: all 0.3s ease;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica;
+  display: flex;
+  flex-direction: column;
 }
 
 .page-wrapper.dark {
@@ -94,7 +97,7 @@ const switchToQuiz = () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 40px;
+  padding: 10px 20px;
   border-bottom: 1px solid var(--border-color);
   position: sticky;
   top: 0;
@@ -112,7 +115,7 @@ const switchToQuiz = () => {
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
-.title-group h1 { font-size: 18px; font-weight: 700; margin: 0; }
+.title-group h1 { font-size: 16px; font-weight: 800; margin: 0; }
 .subtitle { font-size: 10px; font-weight: 900; color: #86868b; letter-spacing: 2px; margin: 0; }
 
 .header-right { display: flex; align-items: center; gap: 24px; }
@@ -140,7 +143,22 @@ const switchToQuiz = () => {
   transform: scale(1.05);
 }
 
-.main-content { max-width: 1200px; margin: 0 auto; padding: 32px; }
+.main-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden; /* 外层不滚动，避免整体框随鼠标滚动跑出 header */
+  max-width: none;
+  width: 100%;
+  margin: 0 auto;
+  padding: 14px 18px;
+  display: flex;
+}
+
+.tab-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
 
 /* 过渡动画 */
 .fade-slide-enter-active, .fade-slide-leave-active { transition: all 0.4s ease; }

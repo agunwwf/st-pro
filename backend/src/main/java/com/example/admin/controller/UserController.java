@@ -35,7 +35,26 @@ public class UserController {
             return Result.error("用户不存在");
         }
         u.setPassword(null);
+        u.setIpLocation(inferIpLocation(req));
         return Result.success(u);
+    }
+
+    private String inferIpLocation(HttpServletRequest req) {
+        String ip = req.getHeader("X-Forwarded-For");
+        if (ip != null && !ip.trim().isEmpty()) {
+            ip = ip.split(",")[0].trim();
+        } else {
+            ip = req.getRemoteAddr();
+        }
+        if (ip == null) return "未知";
+        if (ip.startsWith("127.") || ip.startsWith("10.") || ip.startsWith("192.168.")) return "内网";
+        if (ip.startsWith("172.")) {
+            try {
+                int second = Integer.parseInt(ip.split("\\.")[1]);
+                if (second >= 16 && second <= 31) return "内网";
+            } catch (Exception ignored) {}
+        }
+        return "公网";
     }
 
     @PostMapping("/login")
@@ -72,18 +91,33 @@ public class UserController {
     }
 
     @GetMapping("/students")
-    public Result getStudents() {
+    public Result getStudents(HttpServletRequest req) {
+        Long uid = (Long) req.getAttribute("userId");
+        User u = uid == null ? null : userService.getById(uid);
+        if (u == null || !"ADMIN".equalsIgnoreCase(u.getRole())) {
+            return Result.error("未授权访问");
+        }
         return Result.success(userService.getAllStudents());
     }
 
     @DeleteMapping("/student/{id}")
-    public Result deleteStudent(@PathVariable Long id) {
+    public Result deleteStudent(HttpServletRequest req, @PathVariable Long id) {
+        Long uid = (Long) req.getAttribute("userId");
+        User u = uid == null ? null : userService.getById(uid);
+        if (u == null || !"ADMIN".equalsIgnoreCase(u.getRole())) {
+            return Result.error("未授权访问");
+        }
         userService.deleteStudent(id);
         return Result.success("删除成功");
     }
 
     @PostMapping("/student/model")
-    public Result setModel(@RequestBody java.util.Map<String, Object> params) {
+    public Result setModel(HttpServletRequest req, @RequestBody java.util.Map<String, Object> params) {
+        Long uid = (Long) req.getAttribute("userId");
+        User u = uid == null ? null : userService.getById(uid);
+        if (u == null || !"ADMIN".equalsIgnoreCase(u.getRole())) {
+            return Result.error("未授权访问");
+        }
         Long id = Long.valueOf(params.get("id").toString());
         Boolean isModel = (Boolean) params.get("isModel");
         userService.setModelStudent(id, isModel);

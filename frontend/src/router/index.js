@@ -17,12 +17,42 @@ const routes = [
     path: '/login',
     name: 'Login',
     component: () => import('../views/Login.vue'),
-    meta: { title: 'Sign In - Apple Admin', guest: true }
+    meta: { title: '登录教学平台', guest: true }
   },
   {
     path: '/forum',
     name: 'Forum',
     component: Forum,
+  },
+  {
+    path: '/my-exams',
+    name: 'MyExams',
+    component: () => import('../views/MyExams.vue'),
+    meta: { title: '我的测验', requiresAuth: true, role: 'STUDENT' }
+  },
+  {
+    path: '/exam/:id',
+    name: 'StudentExam',
+    component: () => import('../views/StudentExam.vue'),
+    meta: { title: '考试作答', requiresAuth: true, role: 'STUDENT' }
+  },
+  {
+    path: '/exam-report/:id',
+    name: 'ExamReport',
+    component: () => import('../views/ExamReport.vue'),
+    meta: { title: '成绩分析', requiresAuth: true, role: 'STUDENT' }
+  },
+  {
+    path: '/management',
+    name: 'Management',
+    component: () => import('../views/TeacherAdmin.vue'), // 指向我们全新的组件
+    meta: { title: '教师控制舱 - LMS', requiresAuth: true, role: 'ADMIN' }
+  },
+  {
+    path: '/teacher/exam-analytics/:id',
+    name: 'TeacherExamAnalytics',
+    component: () => import('../views/TeacherExamAnalytics.vue'),
+    meta: { title: '考试数据分析', requiresAuth: true, role: 'ADMIN' }
   },
   {
     path: '/forum/create',
@@ -39,7 +69,7 @@ const routes = [
         path: 'dashboard',
         name: 'Dashboard',
         component: () => import('../views/Dashboard.vue'),
-        meta: { title: 'Dashboard', requiresAuth: true }
+        meta: { title: '主页', requiresAuth: true }
       },
       {
         path: 'AiTest',
@@ -50,31 +80,26 @@ const routes = [
         path: 'projects',
         name: 'Projects',
         component: () => import('../views/Projects.vue'),
-        meta: { title: 'Projects', requiresAuth: true }
+        meta: { title: '项目', requiresAuth: true }
       },
       {
         path: 'chat',
         name: 'Chat',
         component: () => import('../views/Chat.vue'),
-        meta: { title: 'Messages', requiresAuth: true }
+        meta: { title: '消息', requiresAuth: true }
       },
-      {
-        path: 'management',
-        name: 'Management',
-        component: () => import('../views/Management.vue'),
-        meta: { title: 'Management', requiresAuth: true, role: 'ADMIN' }
-      },
+
       {
         path: 'calendar',
         name: 'Calendar',
         component: () => import('../views/Calendar.vue'),
-        meta: { title: 'Calendar', requiresAuth: true }
+        meta: { title: '打卡日历', requiresAuth: true }
       },
       {
         path: 'profile',
         name: 'Profile',
         component: () => import('../views/Profile.vue'),
-        meta: { title: 'Profile', requiresAuth: true }
+        meta: { title: '个人信息', requiresAuth: true }
       },
       // ========== 新增的五个项目路由 ==========
       {
@@ -154,14 +179,14 @@ router.beforeEach((to, from, next) => {
 
   document.title = to.meta.title || 'Apple Admin'
 
-  // 角色权限校验（忽略大小写；对 username=admin 兜底允许访问 ADMIN 页面）
+  // 角色权限校验（忽略大小写）
   const user = JSON.parse(localStorage.getItem('user') || '{}')
   if (to.meta.role) {
     const username = (user.username || '').toString().toLowerCase().trim()
     const userRole = (user.role || '').toString().toUpperCase().trim()
     const needRole = to.meta.role.toString().toUpperCase().trim()
 
-    // 特例：如果是 admin 账号，即使 role 为空也视为 ADMIN
+
     if (needRole === 'ADMIN' && username === 'admin') {
       return next()
     }

@@ -61,12 +61,17 @@ CREATE TABLE IF NOT EXISTS `sys_user` (
                                           `avatar` longtext COMMENT '头像(Base64)',
                                           `signature` varchar(255) DEFAULT NULL COMMENT '个性签名',
                                           `role` varchar(20) DEFAULT 'STUDENT' COMMENT '角色: ADMIN/STUDENT',
+                                          `teacher_id` bigint DEFAULT NULL COMMENT '绑定的指导老师ID (仅对STUDENT生效)',
+                                          `gender` varchar(16) DEFAULT NULL COMMENT '性别: 男/女/保密',
+                                          `birthday` date DEFAULT NULL COMMENT '生日',
+                                          `region` varchar(64) DEFAULT NULL COMMENT '地区',
                                           `progress` int DEFAULT '0' COMMENT '学习进度(0-100)',
                                           `check_in_count` int DEFAULT '0' COMMENT '打卡次数',
                                           `is_model` tinyint(1) DEFAULT '0' COMMENT '是否为模范学生',
                                           `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
                                           PRIMARY KEY (`id`),
-                                          UNIQUE KEY `uk_username` (`username`)
+                                          UNIQUE KEY `uk_username` (`username`),
+                                          KEY `idx_teacher_id` (`teacher_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 -- 论坛帖子主表
 CREATE TABLE IF NOT EXISTS `sys_forum_post` (
@@ -150,4 +155,112 @@ CREATE TABLE IF NOT EXISTS `sys_ai_quiz_record` (
                                                     `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
                                                     PRIMARY KEY (`id`),
                                                     KEY `idx_user_module` (`user_id`, `module_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- 1. 题库表 (sys_question) —— 存放所有的原始题目
+CREATE TABLE IF NOT EXISTS `sys_question` (
+                                              `id` bigint NOT NULL AUTO_INCREMENT,
+                                              `teacher_id` bigint DEFAULT NULL COMMENT '谁出的题(NULL为系统自带)',
+                                              `category` varchar(50) NOT NULL COMMENT '模块分类(kmeans等)',
+                                              `type` varchar(20) NOT NULL COMMENT '题型: SINGLE_CHOICE/FILL_BLANK/CODING',
+                                              `content` text NOT NULL COMMENT '题干',
+                                              `options` JSON DEFAULT NULL COMMENT '选项数据',
+                                              `standard_answer` text NOT NULL COMMENT '标准答案',
+                                              `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+                                              PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- 2. 试卷表 (sys_paper) —— 核心新增！固定不变的卷子模板
+CREATE TABLE IF NOT EXISTS `sys_paper` (
+                                           `id` bigint NOT NULL AUTO_INCREMENT,
+                                           `teacher_id` bigint NOT NULL COMMENT '组卷老师',
+                                           `title` varchar(100) NOT NULL COMMENT '试卷名称 (例如: K-Means 2026标准测试卷A)',
+                                           `category` varchar(50) NOT NULL COMMENT '所属模块',
+                                           `total_score` int DEFAULT '100' COMMENT '卷面总分',
+                                           `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+                                           PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- 3. 试卷-题目关联表 (sys_paper_question) —— 这张卷子选了哪几道题
+CREATE TABLE IF NOT EXISTS `sys_paper_question` (
+                                                    `id` bigint NOT NULL AUTO_INCREMENT,
+                                                    `paper_id` bigint NOT NULL COMMENT '试卷ID',
+                                                    `question_id` bigint NOT NULL COMMENT '题库题目ID',
+                                                    `score` int DEFAULT '10' COMMENT '这道题在这张试卷里占几分',
+                                                    PRIMARY KEY (`id`),
+                                                    UNIQUE KEY `uk_paper_question` (`paper_id`, `question_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- 4. 考试发布表 (sys_assignment) —— 老师将卷子发给学生的行为
+CREATE TABLE IF NOT EXISTS `sys_assignment` (
+                                                `id` bigint NOT NULL AUTO_INCREMENT,
+                                                `teacher_id` bigint NOT NULL,
+                                                `paper_id` bigint NOT NULL COMMENT '引用的试卷ID (灵魂解耦！)',
+                                                `publish_name` varchar(100) NOT NULL COMMENT '发布名称 (例如: 计科一班周测)',
+                                                `start_time` datetime NOT NULL COMMENT '开放时间',
+                                                `end_time` datetime NOT NULL COMMENT '截止时间',
+                                                `time_limit_minutes` int NOT NULL COMMENT '限时',
+                                                `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+                                                PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- 5. 学生答卷记录表 (sys_student_record) —— 考试快照
+CREATE TABLE IF NOT EXISTS `sys_student_record` (
+                                                    `id` bigint NOT NULL AUTO_INCREMENT,
+                                                    `assignment_id` bigint NOT NULL COMMENT '对应的考试任务ID',
+                                                    `student_id` bigint NOT NULL COMMENT '学生ID',
+                                                    `status` tinyint DEFAULT '0' COMMENT '0:未交, 1:待批, 2:已批',
+                                                    `score` int DEFAULT '0' COMMENT '得分',
+                                                    `student_answers` JSON DEFAULT NULL COMMENT '答题详情快照',
+                                                    `submit_time` datetime DEFAULT NULL,
+                                                    PRIMARY KEY (`id`),
+                                                    UNIQUE KEY `uk_student_assign` (`student_id`, `assignment_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------------
+-- 班级关系申请表：学生申请加入/更换导师（需要审批）
+-- 规则：
+-- - BIND：学生未绑定导师时，申请加入 new_teacher_id；需要老师同意
+-- - SWITCH：学生已绑定 old_teacher_id，申请更换到 new_teacher_id；需要 两个老师 都同意
+-- - 同一学生对同一 new_teacher 同类型只允许存在一条 
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `sys_teacher_student_request` (
+    `id` bigint NOT NULL AUTO_INCREMENT,
+    `student_id` bigint NOT NULL,
+    `old_teacher_id` bigint DEFAULT NULL,
+    `new_teacher_id` bigint NOT NULL,
+    `req_type` varchar(16) NOT NULL COMMENT 'BIND | SWITCH',
+    `status` varchar(16) NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING | APPROVED | REJECTED | CANCELLED',
+    `approve_old` tinyint(1) NOT NULL DEFAULT '0',
+    `approve_new` tinyint(1) NOT NULL DEFAULT '0',
+    `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+    `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_req_student` (`student_id`),
+    KEY `idx_req_old_teacher` (`old_teacher_id`),
+    KEY `idx_req_new_teacher` (`new_teacher_id`),
+    KEY `idx_req_status` (`status`),
+    UNIQUE KEY `uk_req_pending` (`student_id`, `new_teacher_id`, `req_type`, `status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------------
+-- 班级拉黑表：老师踢出学生后，学生不可再次申请加入该老师
+-- 只有老师手动添加学生才允许（同时解除拉黑）
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `sys_teacher_student_block` (
+    `id` bigint NOT NULL AUTO_INCREMENT,
+    `teacher_id` bigint NOT NULL,
+    `student_id` bigint NOT NULL,
+    `reason` varchar(255) DEFAULT NULL,
+    `active` tinyint(1) NOT NULL DEFAULT '1',
+    `created_by` bigint NOT NULL COMMENT '执行踢出/拉黑的老师ID',
+    `blocked_at` datetime DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_block_teacher_student` (`teacher_id`, `student_id`),
+    KEY `idx_block_teacher` (`teacher_id`),
+    KEY `idx_block_student` (`student_id`),
+    KEY `idx_block_active` (`active`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

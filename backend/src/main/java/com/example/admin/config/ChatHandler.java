@@ -4,6 +4,8 @@ import com.example.admin.entity.Message;
 import com.example.admin.mapper.MessageMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.example.admin.util.JwtUtil;
+import io.jsonwebtoken.Claims;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
@@ -21,9 +23,11 @@ public class ChatHandler extends TextWebSocketHandler {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final MessageMapper messageMapper;
+    private final JwtUtil jwtUtil;
 
-    public ChatHandler(MessageMapper messageMapper) {
+    public ChatHandler(MessageMapper messageMapper, JwtUtil jwtUtil) {
         this.messageMapper = messageMapper;
+        this.jwtUtil = jwtUtil;
     }
 
     @Override
@@ -41,9 +45,25 @@ public class ChatHandler extends TextWebSocketHandler {
             String type = root.path("type").asText();
 
             if ("auth".equals(type)) {
-                String username = root.path("from").asText(null);
-                if (username != null && !username.trim().isEmpty()) {
-                    USER_SESSIONS.put(username.trim(), session);
+                String token = root.path("token").asText(null);
+                if (token == null || token.trim().isEmpty()) {
+                    session.close();
+                    return;
+                }
+                token = token.trim();
+                if (token.startsWith("Bearer ")) {
+                    token = token.substring(7);
+                }
+                try {
+                    Claims claims = jwtUtil.parseToken(token.trim());
+                    String username = claims.getSubject();
+                    if (username != null && !username.trim().isEmpty()) {
+                        USER_SESSIONS.put(username.trim(), session);
+                    } else {
+                        session.close();
+                    }
+                } catch (Exception e) {
+                    session.close();
                 }
                 return;
             }

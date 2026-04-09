@@ -7,15 +7,15 @@ import streamlit as st
 
 # 从环境变量中获取密钥：os.getenv("变量名")，变量名建议大写，比如DEEPSEEK_API_KEY
 # sk-dfcdca01541d412cad20383052c6e554
-DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY")
+# DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY")
 
 # 判空：如果没获取到环境变量，提示错误（避免运行时崩溃）
-if not DASHSCOPE_API_KEY:
-    raise ValueError("请先设置 DASHSCOPE_API_KEY 环境变量！")
+# if not DASHSCOPE_API_KEY:
+#     raise ValueError("请先设置 DASHSCOPE_API_KEY 环境变量！")
 
 llm=ChatTongyi(
     model="qwen-turbo",
-    api_key=DASHSCOPE_API_KEY,
+    api_key="sk-dfcdca01541d412cad20383052c6e554",
     temperature=0.3
     )
 

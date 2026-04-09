@@ -1,11 +1,13 @@
 package com.example.admin.controller;
 
+import com.example.admin.service.KnowledgeGraphService;
 import com.example.admin.service.LearningCompletionService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -19,7 +21,8 @@ public class LearningCompletionController {
 
     @Autowired
     private LearningCompletionService learningCompletionService;
-
+    @Autowired
+    private KnowledgeGraphService knowledgeGraphService;
     /**
      * 记录一次完成。Body 示例：{"moduleId":"kmeans","kind":"demo"}
      * userId 从 req.getAttribute("userId") 取，是登录时 JWT 解析结果，不能由前端随便指定。
@@ -44,5 +47,11 @@ public class LearningCompletionController {
     public Result<Map<String, Object>> summary(HttpServletRequest req) {
         Long userId = (Long) req.getAttribute("userId");
         return Result.success(learningCompletionService.getSummary(userId));
+    }
+
+    @GetMapping("/skill-tree")
+    public Result<List<Map<String, Object>>> getSkillTree(HttpServletRequest req) {
+        Long userId = (Long) req.getAttribute("userId");
+        return Result.success(knowledgeGraphService.getSkillTree(userId));
     }
 }

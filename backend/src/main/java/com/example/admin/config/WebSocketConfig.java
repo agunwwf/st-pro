@@ -1,6 +1,7 @@
 package com.example.admin.config;
 
 import com.example.admin.mapper.MessageMapper;
+import com.example.admin.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,6 +16,9 @@ public class WebSocketConfig implements WebSocketConfigurer {
     @Autowired
     private MessageMapper messageMapper;
 
+    @Autowired
+    private JwtUtil jwtUtil;
+
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         // 注册聊天 WebSocket
@@ -28,7 +32,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     @Bean
     public ChatHandler chatHandler() {
-        return new ChatHandler(messageMapper);
+        return new ChatHandler(messageMapper, jwtUtil);
     }
 
     @Bean

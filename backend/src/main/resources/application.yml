@@ -1,7 +1,13 @@
 spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DB:0}
   ai:
     openai:
-      api-key: ${DEEPSEEK_API_KEY:}
+      api-key: ${DEEPSEEK_API_KEY:sk-9a7440e6433049ceb91abe9ed108def6}
       base-url: https://api.deepseek.com
       chat:
         options:
@@ -32,3 +38,7 @@ server:
 
 jwt:
   secret: asdfgHJHJKL123@#$$%789
+
+logging:
+  file:
+    name: logs/learning-system.log

@@ -14,19 +14,62 @@
       </div>
     </div>
 
-    <!-- 统计网格 -->
+    <!-- 统计完成 -->
     <div class="stats-grid">
       <div class="stat-card glass-card" v-for="stat in stats" :key="stat.label">
-        <div class="stat-icon" :style="{ background: stat.color }">
-          <el-icon><component :is="stat.icon" /></el-icon>
+
+        <el-popover
+            v-if="stat.label === '已完成教学'"
+            placement="bottom"
+            :width="260"
+            trigger="hover"
+        >
+          <template #reference>
+            <div style="display:flex; gap:24px; align-items:center; cursor: pointer; width: 100%;">
+              <div class="stat-icon" :style="{ background: stat.color }">
+                <el-icon><component :is="stat.icon" /></el-icon>
+              </div>
+              <div class="stat-info">
+                <span class="stat-value">{{ stat.value }}</span>
+                <span class="stat-label">{{ stat.label }}</span>
+              </div>
+            </div>
+          </template>
+
+          <div class="completion-details">
+            <h4 style="margin: 0 0 12px 0; font-size: 15px; color: #1d1d1f; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+              已解锁模块详情
+            </h4>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+              <el-tag
+                  v-for="item in completedItems"
+                  :key="item.id"
+                  size="default"
+                  :type="item.kind === 'demo' ? 'success' : 'primary'"
+                  effect="light"
+              >
+                {{ item.moduleId.toUpperCase() }} ({{ item.kind === 'demo' ? '演示' : '练习' }})
+              </el-tag>
+
+              <div v-if="completedItems.length === 0" style="color: #999; font-size: 13px; width: 100%; text-align: center; padding: 10px 0;">
+                暂未完成任何教学哦~ 快去学习吧！
+              </div>
+            </div>
+          </div>
+        </el-popover>
+
+        <div v-else style="display:flex; gap:24px; align-items:center; width: 100%;">
+          <div class="stat-icon" :style="{ background: stat.color }">
+            <el-icon><component :is="stat.icon" /></el-icon>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">{{ stat.value }}</span>
+            <span class="stat-label">{{ stat.label }}</span>
+          </div>
         </div>
-        <div class="stat-info">
-          <span class="stat-value">{{ stat.value }}</span>
-          <span class="stat-label">{{ stat.label }}</span>
-        </div>
+
       </div>
     </div>
-
     <!-- 底部网格：学习线程 + 快速操作 -->
     <div class="bottom-grid">
       <div class="learning-thread glass-card">
@@ -60,6 +103,8 @@
       </div>
 
       <div class="side-column">
+        <!--Tree-->
+        <SkillTreeChart />
         <div class="quick-actions glass-card">
           <h3>快速操作</h3>
           <div class="action-buttons">
@@ -96,6 +141,7 @@ import { Timer, Checked, Star, Reading } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
 window.axios = request
+import SkillTreeChart from '@/components/SkillTreeChart.vue';
 
 const user = ref({})
 const threadList = ref([])
@@ -104,6 +150,7 @@ const streakCount = ref(0)
 const onlineSeconds = ref(0)
 // 教学完成统计：来自后端 /api/learning/summary（Streamlit 里点「已完成」后写入 MySQL）
 const learningCompletedTotal = ref(0)
+const completedItems = ref([])
 const learningCompletedMax = ref(10) // 5 个项目 × 演示+分步 各 1 = 10，与后端 MODULES×KINDS 一致
 const showUpdateDialog = ref(false)
 const submitting = ref(false)
@@ -252,6 +299,9 @@ const loadData = async () => {
     if (learnRes.data.code === 200 && learnRes.data.data) {
       learningCompletedTotal.value = learnRes.data.data.totalCount ?? 0
       learningCompletedMax.value = learnRes.data.data.maxCount ?? 10
+
+      // 【关键修复】把后端传过来的明细存起来给气泡用！
+      completedItems.value = learnRes.data.data.items || []
     }
   } catch (e) {
     console.error('加载教学完成统计失败', e)

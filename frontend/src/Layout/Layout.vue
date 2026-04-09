@@ -8,16 +8,16 @@
         </div>
       </div>
 
-      <nav class="nav-menu">
+      <nav class="nav-menu" :class="{ spread: !projectsMenuOpen && !isCollapse }">
         <router-link to="/dashboard" class="nav-item" active-class="active">
           <el-icon><Odometer /></el-icon>
-          <span v-if="!isCollapse">Dashboard</span>
+          <span v-if="!isCollapse">仪表盘</span>
         </router-link>
 
         <!-- Projects 改为有子菜单的结构 -->
         <div class="nav-item projects-menu" :class="{ 'menu-open': projectsMenuOpen }" @click="toggleProjectsMenu">
           <el-icon><Folder /></el-icon>
-          <span v-if="!isCollapse">Projects</span>
+          <span v-if="!isCollapse">项目</span>
           <el-icon v-if="!isCollapse" class="menu-arrow" :class="{ 'rotated': projectsMenuOpen }">
             <ArrowDown />
           </el-icon>
@@ -29,7 +29,7 @@
             项目总览
           </router-link>
           <router-link to="/projects/bayes-text-classification" class="submenu-item" active-class="active" @click="closeSubmenu">
-            K-means Teaching Platform
+            贝叶斯文本分类
           </router-link>
           <router-link to="/projects/wine-clustering" class="submenu-item" active-class="active" @click="closeSubmenu">
             逻辑回归交互式学习平台
@@ -47,25 +47,28 @@
 
         <router-link to="/chat" class="nav-item" active-class="active">
           <el-icon><ChatRound /></el-icon>
-          <span v-if="!isCollapse">Messages</span>
+          <span v-if="!isCollapse">消息</span>
         </router-link>
-        <!-- Management 菜单始终展示，真正的权限控制交由路由守卫处理 -->
-        <router-link to="/management" class="nav-item" active-class="active">
+        <!-- 管理：仅管理员可见（学生侧不显示） -->
+        <router-link v-if="userRole === 'ADMIN'" to="/management" class="nav-item" active-class="active">
           <el-icon><Monitor /></el-icon>
-          <span v-if="!isCollapse">Management</span>
+          <span v-if="!isCollapse">管理</span>
         </router-link>
         <router-link to="/calendar" class="nav-item" active-class="active">
           <el-icon><Calendar /></el-icon>
-          <span v-if="!isCollapse">Calendar</span>
+          <span v-if="!isCollapse">日历</span>
         </router-link>
         <router-link :to="{name:'AiTest'}" class="nav-item" active-class="active">
           <el-icon><Apple /></el-icon>
           <span v-if="!isCollapse">AI练习</span>
         </router-link>
-
+        <router-link to="/my-exams" class="nav-item" active-class="active" v-if="userRole === 'STUDENT'">
+          <el-icon><Avatar /></el-icon>
+          <span v-if="!isCollapse">我的测验</span>
+        </router-link>
         <router-link :to="{ name: 'Forum' }" class="nav-item">
           <el-icon><Search /></el-icon>
-          <span v-if="!isCollapse">COLUMN</span>
+          <span v-if="!isCollapse">专栏</span>
         </router-link>
       </nav>
 
@@ -74,7 +77,7 @@
           <el-avatar :size="36" :src="userAvatar" />
           <div class="user-info" v-if="!isCollapse">
             <span class="name">{{ userName }}</span>
-            <span class="status">Online</span>
+            <span class="status">在线</span>
           </div>
         </div>
         <div class="actions" v-if="!isCollapse">
@@ -127,7 +130,7 @@ import {
   Menu,
   Monitor,
   ArrowDown,
-  Edit, Search, Apple
+  Edit, Search, Apple, EditPen, Avatar
 } from '@element-plus/icons-vue'
 import AiTest from "@/views/AiTest.vue";
 
@@ -395,6 +398,19 @@ onUnmounted(() => {
     gap: 8px;
     &::-webkit-scrollbar { width: 4px; }
     &::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 4px; }
+  }
+
+  /* 未展开子菜单时：主菜单项均分侧边栏高度 */
+  .nav-menu.spread {
+    overflow-y: hidden; /* 均分时不需要滚动条 */
+    gap: 0;
+  }
+
+  .nav-menu.spread > .nav-item {
+    flex: 1 1 0;
+    height: auto;            /* 覆盖默认 44px */
+    min-height: 44px;        /* 仍保证可点击面积 */
+    justify-content: flex-start;
   }
 
   .nav-item {

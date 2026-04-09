@@ -2,315 +2,305 @@
   <div class="profile-container">
     <div class="glass-card profile-header">
       <div class="avatar-section">
-        <el-avatar :size="120" :src="form.avatar" class="profile-avatar" />
-        <el-button class="change-avatar-btn" round @click="uploadVisible = true">更换头像</el-button>
+        <el-avatar :size="100" :src="form.avatar" class="profile-avatar" @click="openAvatarPreview" />
+        <el-button class="change-avatar-btn" plain @click="startAvatarChange">更换头像</el-button>
       </div>
       <div class="info-section">
-        <h2>{{ form.nickname }}</h2>
-        <p>{{ form.signature || '暂无个性签名' }}</p>
+        <h2>{{ form.nickname || form.username || '用户' }}</h2>
+        <p class="signature-display">{{ form.signature || '暂无个性签名' }}</p>
       </div>
     </div>
 
+    <el-dialog v-model="avatarPreviewVisible" title="头像预览" width="420px" class="apple-dialog">
+      <div class="avatar-preview-modal">
+        <el-avatar :size="240" :src="form.avatar" />
+      </div>
+      <template #footer>
+        <el-button @click="avatarPreviewVisible = false" round>关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="uploadVisible" title="更换头像" width="520px" class="apple-dialog">
+      <div class="avatar-upload" :class="{ cropping: !!tempAvatar }">
+        <el-upload
+          v-show="!tempAvatar"
+          ref="uploadRef"
+          class="avatar-uploader"
+          drag
+          :auto-upload="false"
+          :show-file-list="false"
+          accept="image/*"
+          :on-change="handleAvatarChange"
+        >
+          <div class="upload-tip">
+            <div style="font-weight: 700; margin-bottom: 6px;">点击或拖拽图片到此处</div>
+            <div style="color:#86868b; font-size: 12px;">建议正方形图片，大小不超过 2MB</div>
+          </div>
+        </el-upload>
+
+        <div class="avatar-crop" v-if="tempAvatar">
+          <div class="preview-label">裁剪</div>
+          <div class="cropper-box">
+            <img ref="cropperImgRef" :src="tempAvatar" alt="avatar" />
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="uploadVisible = false" round>取消</el-button>
+        <el-button v-if="tempAvatar" @click="triggerFilePick" round>重新选择</el-button>
+        <el-button type="primary" @click="applyAvatar" round :disabled="!tempAvatar">裁剪并保存</el-button>
+      </template>
+    </el-dialog>
+
     <div class="glass-card form-section">
-      <h3>基本资料</h3>
-      <el-form :model="form" label-position="top" size="large">
-        <el-form-item label="昵称">
-          <el-input v-model="form.nickname" placeholder="请输入您的昵称" />
-        </el-form-item>
-        <el-form-item label="个性签名">
-          <el-input v-model="form.signature" type="textarea" :rows="3" placeholder="写一句话介绍自己..." />
-        </el-form-item>
+      <el-form :model="form" label-position="top" size="large" class="apple-form">
+        <div class="section-group">
+          <h3 class="section-title">账户基本信息</h3>
+          <div class="kv-grid">
+            <div class="kv-item">
+              <div class="kv-label">用户ID</div>
+              <div class="kv-value">{{ form.id ?? '-' }}</div>
+            </div>
+            <div class="kv-item">
+              <div class="kv-label">账号</div>
+              <div class="kv-value">{{ form.username || '-' }}</div>
+            </div>
+            <div class="kv-item">
+              <div class="kv-label">IP属地</div>
+              <div class="kv-value">{{ form.ipLocation || '-' }}</div>
+            </div>
+          </div>
+
+          <el-form-item label="公开昵称"><el-input v-model="form.nickname" placeholder="请输入您的昵称" /></el-form-item>
+          <el-form-item label="个性签名"><el-input v-model="form.signature" type="textarea" :rows="3" placeholder="用一句话描述自己..." resize="none" /></el-form-item>
+          <el-form-item label="性别">
+            <el-select v-model="form.gender" placeholder="请选择" style="width: 100%">
+              <el-option label="保密" value="保密" />
+              <el-option label="男" value="男" />
+              <el-option label="女" value="女" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="生日">
+            <el-date-picker v-model="form.birthday" type="date" value-format="YYYY-MM-DD" placeholder="请选择生日" style="width: 100%" />
+          </el-form-item>
+          <el-form-item label="地区">
+            <el-input v-model="form.region" placeholder="如：广东省 深圳市" />
+          </el-form-item>
+        </div>
+
+        <div class="form-divider"></div>
+
+        <transition name="fade">
+          <div v-if="userRole === 'ADMIN'" class="section-group">
+            <h3 class="section-title">教师账户信息</h3>
+            <el-form-item label="教师工号 / 登录账号">
+              <el-input :value="form.username" disabled class="disabled-input" />
+            </el-form-item>
+          </div>
+        </transition>
+
         <div class="form-actions">
-          <el-button type="primary" size="large" @click="save" :loading="saving" class="save-btn">保存修改</el-button>
+          <el-button type="primary" size="large" @click="save" :loading="saving" class="save-btn" round>保存资料修改</el-button>
         </div>
       </el-form>
     </div>
-
-    <!-- 头像裁剪弹窗 -->
-    <el-dialog v-model="uploadVisible" title="更换头像" width="600px" align-center destroy-on-close>
-      <div class="upload-container">
-        <el-upload
-            action="#"
-            :auto-upload="false"
-            :show-file-list="false"
-            accept="image/jpeg,image/png,image/jpg"
-            :on-change="handleFileChange"
-            class="avatar-uploader"
-        >
-          <el-button type="primary">选择本地图片</el-button>
-          <template #tip>
-            <div class="el-upload__tip">支持 JPG/PNG 格式，建议尺寸 500x500 以上</div>
-          </template>
-        </el-upload>
-
-        <div v-if="previewUrl" class="cropper-area">
-          <img ref="cropImage" :src="previewUrl" class="image-to-crop" />
-        </div>
-        <div v-else class="placeholder-area">
-          <el-icon :size="48" color="#dcdfe6"><Picture /></el-icon>
-          <p>请选择一张图片进行裁剪</p>
-        </div>
-      </div>
-
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="uploadVisible = false">取消</el-button>
-          <el-button type="primary" @click="applyAvatar" :disabled="!previewUrl">确认使用</el-button>
-        </span>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref, onMounted, nextTick, onUnmounted } from 'vue'
+import { reactive, ref, onMounted, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Picture } from '@element-plus/icons-vue'
-
 import Cropper from 'cropperjs'
 import 'cropperjs/dist/cropper.css'
 import request from '@/utils/request'
 window.axios = request
 
+const userRole = ref('STUDENT')
+const uploadVisible = ref(false)
+const tempAvatar = ref('')
+const cropperImgRef = ref(null)
+let cropper = null
+const uploadRef = ref(null)
+const avatarPreviewVisible = ref(false)
+
+const openAvatarPreview = () => {
+  avatarPreviewVisible.value = true
+}
+
+const triggerFilePick = async () => {
+  await nextTick()
+  const el = uploadRef.value?.$el
+  const input = el ? el.querySelector('input[type="file"]') : null
+  if (input) input.click()
+  else ElMessage.error('未找到文件选择器，请刷新重试')
+}
+
+const startAvatarChange = async () => {
+  tempAvatar.value = ''
+  uploadVisible.value = true
+  await triggerFilePick()
+}
+
 const form = reactive({
   id: null,
+  username: '',
   nickname: '',
   signature: '',
-  avatar: ''
+  avatar: '',
+  gender: '保密',
+  birthday: '',
+  region: '',
+  ipLocation: ''
 })
-
-const uploadVisible = ref(false)
-const previewUrl = ref('')
-const cropImage = ref(null)
 const saving = ref(false)
-let cropper = null
 
-onMounted(() => {
-  const userStr = localStorage.getItem('user')
-  if (userStr) {
-    try {
-      const user = JSON.parse(userStr)
-      form.id = user.id
-      form.nickname = user.nickname || '未命名用户'
-      form.signature = user.signature || ''
-      form.avatar = user.avatar || 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png'
-    } catch (e) {
-      console.error(e)
-    }
-  }
-})
-
-const handleFileChange = (file) => {
-  const isImage = file.raw.type.startsWith('image/')
-  if (!isImage) {
-    ElMessage.error('请上传图片文件')
+const handleAvatarChange = async (uploadFile) => {
+  const file = uploadFile?.raw
+  if (!file) {
+    ElMessage.error('未获取到图片文件')
     return
   }
-
-  if (previewUrl.value) {
-    URL.revokeObjectURL(previewUrl.value)
+  const maxBytes = 2 * 1024 * 1024
+  if (file.size > maxBytes) {
+    ElMessage.error('图片过大，请选择不超过 2MB 的图片')
+    return
   }
-
-  previewUrl.value = URL.createObjectURL(file.raw)
-
-  nextTick(() => {
-    if (cropper) {
-      cropper.destroy()
-    }
-    if (cropImage.value) {
-      cropper = new Cropper(cropImage.value, {
-        aspectRatio: 1,
-        viewMode: 1,
-        dragMode: 'move',
-        autoCropArea: 1,
-        background: false
-      })
-    }
-  })
+  try {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+    tempAvatar.value = String(dataUrl)
+  } catch (e) {
+    ElMessage.error('读取图片失败')
+  }
 }
 
 const applyAvatar = () => {
-  if (!cropper) return
-
-  cropper.getCroppedCanvas({
-    width: 300,
-    height: 300,
-    imageSmoothingQuality: 'high'
-  }).toBlob((blob) => {
-    const reader = new FileReader()
-    reader.readAsDataURL(blob)
-    reader.onloadend = () => {
-      form.avatar = reader.result
-      uploadVisible.value = false
-      ElMessage.success('头像已裁剪，请点击保存修改')
-    }
-  }, 'image/jpeg', 0.9)
+  if (!tempAvatar.value) return
+  if (!cropper) return ElMessage.error('裁剪器未就绪')
+  try {
+    const canvas = cropper.getCroppedCanvas({ width: 256, height: 256, imageSmoothingEnabled: true })
+    const dataUrl = canvas.toDataURL('image/png')
+    form.avatar = dataUrl
+    uploadVisible.value = false
+    // 直接保存到后端，避免刷新回默认头像
+    save()
+  } catch (e) {
+    ElMessage.error('裁剪失败')
+  }
 }
+
+watch([uploadVisible, tempAvatar], async () => {
+  if (!uploadVisible.value) {
+    if (cropper) { cropper.destroy(); cropper = null }
+    return
+  }
+  if (!tempAvatar.value) return
+  await nextTick()
+  if (!cropperImgRef.value) return
+  if (cropper) { cropper.destroy(); cropper = null }
+  cropper = new Cropper(cropperImgRef.value, {
+    aspectRatio: 1,
+    viewMode: 1,
+    autoCropArea: 1,
+    background: false,
+    movable: true,
+    zoomable: true,
+    scalable: false,
+    rotatable: false,
+    responsive: true,
+  })
+})
+
+onMounted(async () => {
+  // 以 /api/user/me 为准，保证字段齐全（含 IP属地）
+  try {
+    const res = await axios.get('/api/user/me')
+    if (res.data.code === 200) {
+      const u = res.data.data || {}
+      form.id = u.id
+      form.username = u.username || ''
+      form.nickname = u.nickname || ''
+      form.signature = u.signature || ''
+      form.avatar = u.avatar || 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png'
+      form.gender = u.gender || '保密'
+      form.birthday = u.birthday || ''
+      form.region = u.region || ''
+      form.ipLocation = u.ipLocation || ''
+      userRole.value = u.role || 'STUDENT'
+    }
+  } catch (e) {}
+})
 
 const save = async () => {
   saving.value = true
   try {
-    const fullUrl = 'http://localhost:8080/api/user/update'
-
-    await axios.post(fullUrl, form)
-
-    // 更新本地存储
-    const userStr = localStorage.getItem('user')
-    let user = userStr ? JSON.parse(userStr) : {}
-    user = { ...user, ...form }
-    localStorage.setItem('user', JSON.stringify(user))
-
-    // 触发更新事件
-    window.dispatchEvent(new CustomEvent('user-updated', { detail: user }))
-
-    ElMessage.success('个人资料已保存')
+    // 统一走前端 request（携带 JWT），避免硬编码 localhost 导致线上/CORS 问题
+    const res = await axios.post('/api/user/update', form)
+    if (res.data.code === 200) {
+      // 刷新本地缓存用户信息
+      try {
+        const me = await axios.get('/api/user/me')
+        if (me.data.code === 200) {
+          const user = me.data.data || {}
+          localStorage.setItem('user', JSON.stringify(user))
+          window.dispatchEvent(new CustomEvent('user-updated', { detail: user }))
+        }
+      } catch (e) {}
+      ElMessage.success('资料保存成功')
+    }
   } catch (e) {
     ElMessage.error('保存失败')
   } finally {
     saving.value = false
   }
 }
-
-// 清理资源
-onUnmounted(() => {
-  if (previewUrl.value) {
-    URL.revokeObjectURL(previewUrl.value)
-  }
-  if (cropper) {
-    cropper.destroy()
-  }
-})
 </script>
 
 <style scoped>
-.profile-container {
-  max-width: 1000px; /* 增加宽度 */
-  margin: 40px auto;
-  display: flex;
-  flex-direction: column;
-  gap: 32px; /* 增加间距 */
-  padding: 0 20px;
-}
-
-.glass-card {
-  background: var(--apple-card-bg);
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--apple-glass-border);
-  border-radius: 24px; /* 更大的圆角 */
-  box-shadow: var(--apple-shadow);
-}
-
-.profile-header {
-  padding: 48px; /* 增加内边距 */
-  display: flex;
-  align-items: center;
-  gap: 48px;
-}
-
-.avatar-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-}
-
+/* 样式保留你的极简纯净风 */
+.profile-container { max-width: 800px; margin: 40px auto; display: flex; flex-direction: column; gap: 24px; padding: 0 20px; animation: fadeIn 0.4s ease; }
+.glass-card { background: #ffffff; border: 1px solid #e5e5ea; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
+.profile-header { padding: 40px; display: flex; align-items: center; gap: 32px; }
+.avatar-section { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.profile-avatar { border: 2px solid #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.08); cursor: pointer; }
 .change-avatar-btn {
-  font-weight: 500;
-}
-
-.info-section h2 {
-  margin: 0 0 12px 0;
-  font-size: 32px; /* 更大的标题 */
-  font-weight: 700;
-  color: var(--apple-text-primary);
-}
-
-.info-section p {
-  margin: 0;
-  font-size: 18px; /* 更大的正文 */
-  color: var(--apple-text-secondary);
-  line-height: 1.5;
-}
-
-.form-section {
-  padding: 48px;
-}
-
-.form-section h3 {
-  margin: 0 0 32px 0;
-  font-size: 24px;
-  font-weight: 600;
-}
-
-.form-actions {
-  margin-top: 40px;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.save-btn {
-  padding: 12px 40px;
-  font-size: 16px;
+  color: #606266 !important;
+  height: 32px;
+  padding: 0 18px;
   border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  background: transparent;
+  border: 1px solid #dcdfe6;
+  box-shadow: none;
 }
-
-/* 裁剪器样式 */
-.upload-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-}
-
-.cropper-area {
-  width: 100%;
-  height: 400px;
-  background: var(--apple-bg);
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.image-to-crop {
-  display: block;
-  max-width: 100%;
-}
-
-.placeholder-area {
-  width: 100%;
-  height: 300px;
-  background: var(--apple-bg);
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: var(--apple-text-secondary);
-  gap: 12px;
-}
-
-/* 覆盖 Element Plus 样式以匹配 Apple 风格 */
-:deep(.el-form-item__label) {
-  font-size: 16px;
-  font-weight: 500;
-  color: #1d1d1f;
-  margin-bottom: 10px;
-}
-
-:deep(.el-input__wrapper) {
-  padding: 8px 16px;
-  border-radius: 12px;
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.1) inset;
-}
-
-:deep(.el-input__inner) {
-  font-size: 16px;
-  height: 40px;
-}
-
-:deep(.el-textarea__inner) {
-  padding: 12px 16px;
-  border-radius: 12px;
-  font-size: 16px;
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.1) inset;
-}
+.change-avatar-btn:hover { background: #f5f7fa; border-color: #c0c4cc; color: #606266 !important; }
+.change-avatar-btn:active { background: #eef2f6; }
+.avatar-preview-modal { display: flex; justify-content: center; padding: 8px 0 16px 0; }
+.avatar-upload { display: flex; gap: 16px; align-items: flex-start; }
+.avatar-upload.cropping { justify-content: center; }
+.avatar-uploader { flex: 1; }
+.upload-tip { padding: 18px 0; }
+.avatar-crop { width: 220px; display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 0 auto; }
+.cropper-box { width: 220px; height: 220px; border-radius: 12px; overflow: hidden; border: 1px solid #e5e5ea; background: #f5f5f7; }
+.cropper-box img { display: block; max-width: 100%; }
+.preview-label { font-size: 12px; color: #86868b; font-weight: 700; }
+.kv-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+.kv-item { background: #fbfcfe; border: 1px solid #e5e5ea; border-radius: 10px; padding: 12px; }
+.kv-label { font-size: 12px; color: #86868b; margin-bottom: 4px; }
+.kv-value { font-size: 14px; color: #1d1d1f; font-weight: 700; word-break: break-all; }
+.info-section h2 { margin: 0 0 6px 0; font-size: 26px; font-weight: 700; color: #1d1d1f; }
+.signature-display { margin: 0; font-size: 14px; color: #86868b; line-height: 1.5; }
+.form-section { padding: 40px; }
+.section-group { margin-bottom: 32px; }
+.section-title { margin: 0 0 20px 0; font-size: 17px; font-weight: 600; color: #1d1d1f; }
+.form-divider { height: 1px; background: #e5e5ea; margin: 0 0 32px 0; }
+.form-actions { margin-top: 40px; display: flex; justify-content: flex-end; }
+:deep(.el-form-item__label) { font-size: 14px; color: #1d1d1f; font-weight: 500; margin-bottom: 8px !important; padding: 0 !important; }
+:deep(.el-input__wrapper), :deep(.el-textarea__inner) { border-radius: 8px; box-shadow: none !important; background: #fbfcfe; border: 1px solid #d2d2d7; }
+:deep(.el-input__wrapper.is-focus), :deep(.el-textarea__inner:focus) { border-color: #0071e3 !important; background: #fff; }
 </style>

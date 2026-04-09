@@ -1,6 +1,7 @@
 package com.example.admin.entity;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 public class User {
     private Long id;
@@ -10,6 +11,12 @@ public class User {
     private String avatar;
     private String signature;
     private String role; // ADMIN or STUDENT
+    private Long teacherId;
+    private String gender;
+    private LocalDate birthday;
+    private String region;
+    // 仅用于展示：由后端按请求 IP 推断
+    private String ipLocation;
     private Integer progress;
     private Integer checkInCount;
     private Integer isModel;
@@ -36,6 +43,21 @@ public class User {
 
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
+
+    public Long getTeacherId() { return teacherId; }
+    public void setTeacherId(Long teacherId) { this.teacherId = teacherId; }
+
+    public String getGender() { return gender; }
+    public void setGender(String gender) { this.gender = gender; }
+
+    public LocalDate getBirthday() { return birthday; }
+    public void setBirthday(LocalDate birthday) { this.birthday = birthday; }
+
+    public String getRegion() { return region; }
+    public void setRegion(String region) { this.region = region; }
+
+    public String getIpLocation() { return ipLocation; }
+    public void setIpLocation(String ipLocation) { this.ipLocation = ipLocation; }
 
     public Integer getProgress() { return progress; }
     public void setProgress(Integer progress) { this.progress = progress; }

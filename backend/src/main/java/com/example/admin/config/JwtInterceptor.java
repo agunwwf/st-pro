@@ -29,7 +29,11 @@ public class JwtInterceptor implements HandlerInterceptor {
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             return true;
         }
-
+        // 因为前端的 <img src="..."> 发起的是普通 GET 请求，无法携带 Token
+        String uri = request.getRequestURI();
+        if (uri.startsWith("/api/chat/file/")) {
+            return true;
+        }
         String token = request.getHeader("token");
         if (token == null || token.isBlank()) {
             token = request.getHeader("Authorization");

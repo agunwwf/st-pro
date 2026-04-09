@@ -85,10 +85,10 @@
             </div>
             <div class="bubble">
               <template v-if="msg.msgType === 'image'">
-                <img :src="msg.content" alt="图片" class="image-message" />
+                <img :src="resolveUploadUrl(msg.content)" alt="图片" class="image-message" />
               </template>
               <template v-else-if="msg.msgType === 'file'">
-                <a class="file-link" :href="msg.content" :download="msg.fileName" target="_blank">
+                <a class="file-link" :href="resolveUploadUrl(msg.content)" :download="msg.fileName" target="_blank">
                   <el-icon class="file-icon"><Folder /></el-icon>
                   <span class="file-name">{{ msg.fileName || '文件附件' }}</span>
                 </a>
@@ -167,6 +167,8 @@ const pendingRequests = ref([])
 const showRequests = ref(false)
 let socket = null
 let socketConnecting = false
+let reconnectTimer = null
+let reconnectAttempt = 0
 
 // 默认头像（如果好友没有头像则使用）
 const defaultAvatar = 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png'
@@ -190,11 +192,15 @@ const connectWebSocket = () => {
   if (socketConnecting) return
   socketConnecting = true
 
-  socket = new WebSocket('ws://localhost:8080/ws/chat')
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const wsUrl = `${proto}//${window.location.hostname}:8080/ws/chat`
+  socket = new WebSocket(wsUrl)
   socket.onopen = () => {
     socketConnecting = false
+    reconnectAttempt = 0
     // 发送身份认证包，绑定 Session
-    socket.send(JSON.stringify({ type: 'auth', from: currentUser.username }))
+    const token = localStorage.getItem('token') || ''
+    socket.send(JSON.stringify({ type: 'auth', token }))
   }
   socket.onerror = () => {
     socketConnecting = false
@@ -203,6 +209,14 @@ const connectWebSocket = () => {
   socket.onclose = () => {
     socketConnecting = false
     socket = null
+    // 自动重连，避免上传/网络抖动导致断线
+    if (!reconnectTimer) {
+      const delay = Math.min(15000, 1000 * Math.pow(2, reconnectAttempt++))
+      reconnectTimer = window.setTimeout(() => {
+        reconnectTimer = null
+        connectWebSocket()
+      }, delay)
+    }
   }
   socket.onmessage = (event) => {
     try {
@@ -256,7 +270,7 @@ const initData = async () => {
 
 const loadFriends = async () => {
   try {
-    const res = await axios.get(`http://localhost:8080/api/chat/friends?userId=${currentUser.id}`)
+    const res = await axios.get(`/api/chat/friends?userId=${currentUser.id}`)
     if (res.data.code === 200) friends.value = res.data.data
   } catch (e) {
     console.error('加载好友失败', e)
@@ -265,7 +279,7 @@ const loadFriends = async () => {
 
 const loadRequests = async () => {
   try {
-    const res = await axios.get(`http://localhost:8080/api/chat/friend/requests?userId=${currentUser.id}`)
+    const res = await axios.get(`/api/chat/friend/requests?userId=${currentUser.id}`)
     if (res.data.code === 200) {
       pendingRequests.value = res.data.data
     }
@@ -279,7 +293,7 @@ const searchAndAdd = async () => {
   if (friendKeyword.value === currentUser.username) return ElMessage.warning("不能添加自己为好友")
 
   try {
-    const searchRes = await axios.get(`http://localhost:8080/api/chat/search?keyword=${friendKeyword.value}`)
+    const searchRes = await axios.get(`/api/chat/search?keyword=${friendKeyword.value}`)
     // 注意：后端现在返回的是 List<User>
     if (searchRes.data.code !== 200 || !searchRes.data.data || searchRes.data.data.length === 0) {
       return ElMessage.error('未找到该用户')
@@ -294,7 +308,7 @@ const searchAndAdd = async () => {
       type: 'info'
     })
 
-    const reqRes = await axios.post('http://localhost:8080/api/chat/friend/request', {
+    const reqRes = await axios.post('/api/chat/friend/request', {
       userId: currentUser.id,
       friendUsername: targetUser.username
     })
@@ -312,7 +326,7 @@ const searchAndAdd = async () => {
 
 const acceptFriend = async (req) => {
   try {
-    const res = await axios.post('http://localhost:8080/api/chat/friend/accept', {
+    const res = await axios.post('/api/chat/friend/accept', {
       // 后端按 Friend 对象接收：userId 为申请发起者，friendId 为接收方
       userId: req.userId,
       friendId: req.friendId
@@ -332,7 +346,7 @@ const selectFriend = async (f) => {
   activeFriend.value = f
   localStorage.setItem('chat_active_friend', f.friendUsername)
   try {
-    const res = await axios.get(`http://localhost:8080/api/chat/messages?user1=${currentUser.username}&user2=${f.friendUsername}`)
+    const res = await axios.get(`/api/chat/messages?user1=${currentUser.username}&user2=${f.friendUsername}`)
     if (res.data.code === 200) {
       messages.value = res.data.data
       scrollToBottom()
@@ -344,16 +358,29 @@ const selectFriend = async (f) => {
 
 // --- 消息发送逻辑 ---
 
-const send = () => {
+const send = async () => {
   if (!inputText.value.trim()) return
-  sendMessage('text', inputText.value)
+  await sendMessage('text', inputText.value)
   inputText.value = ''
 }
 
-const sendMessage = (type, content, fileName = null) => {
+const sendMessage = async (type, content, fileName = null) => {
   if (!activeFriend.value) return
-  if (!socket || socket.readyState !== WebSocket.OPEN) {
-    ElMessage.error('聊天连接已断开，请刷新页面重新进入聊天')
+  // 先落库，保证刷新不丢（WS 只负责实时转发）
+  try {
+    const saveRes = await axios.post('/api/chat/message/save', {
+      toUser: activeFriend.value.friendUsername,
+      content,
+      msgType: type,
+      fileName
+    })
+    if (saveRes?.data?.code !== 200) {
+      ElMessage.error(saveRes?.data?.msg || '消息保存失败')
+      return
+    }
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('消息保存失败')
     return
   }
 
@@ -369,9 +396,11 @@ const sendMessage = (type, content, fileName = null) => {
     avatar: currentUser.avatar
   }
 
-  // WebSocket 发送 (用于实时转发)
+  // WebSocket 发送 (用于实时转发；断线不影响落库)
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify(payload))
+  } else {
+    connectWebSocket()
   }
 
   // 本地直接显示
@@ -408,13 +437,11 @@ const handleImageSelected = async (e) => {
   formData.append('file', file)
 
   try {
-    const res = await axios.post('http://localhost:8080/api/chat/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
+    const res = await axios.post('/api/chat/upload', formData)
     if (res.data.code === 200 && res.data.data) {
       const { url } = res.data.data
       // 发送图片消息，content 仅为图片 URL
-      sendMessage('image', `http://localhost:8080${url}`)
+      sendMessage('image', url)
     } else {
       ElMessage.error(res.data.msg || '图片上传失败')
     }
@@ -435,13 +462,11 @@ const handleFileSelected = async (e) => {
   formData.append('file', file)
 
   try {
-    const res = await axios.post('http://localhost:8080/api/chat/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
+    const res = await axios.post('/api/chat/upload', formData)
     if (res.data.code === 200 && res.data.data) {
       const { url, fileName } = res.data.data
       // 发送文件消息，content 为下载 URL，fileName 为原文件名
-      sendMessage('file', `http://localhost:8080${url}`, fileName)
+      sendMessage('file', url, fileName)
     } else {
       ElMessage.error(res.data.msg || '文件上传失败')
     }
@@ -463,12 +488,23 @@ const formatTime = (t) => {
   return new Date(t).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
+const resolveUploadUrl = (content) => {
+  if (!content) return ''
+  const s = String(content)
+  // 已经是绝对 URL 则直接用
+  if (/^https?:\/\//i.test(s)) return s
+  const base = (axios?.defaults?.baseURL || '').replace(/\/$/, '')
+  if (!base) return s
+  return `${base}${s.startsWith('/') ? '' : '/'}${s}`
+}
+
 onMounted(() => {
   initData()
 })
 
 onUnmounted(() => {
   if (socket) socket.close()
+  if (reconnectTimer) window.clearTimeout(reconnectTimer)
 })
 </script>
 

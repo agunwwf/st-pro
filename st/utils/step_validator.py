@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from st.config.step_specs import MustContainRule, StepSpec, get_step_spec
+from config.step_specs import MustContainRule, StepSpec, get_step_spec
 
 
 def _contains_all(code: str, rule: MustContainRule) -> bool:
