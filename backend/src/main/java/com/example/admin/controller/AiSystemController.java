@@ -3,12 +3,15 @@ package com.example.admin.controller;
 import com.example.admin.entity.AiChat;
 import com.example.admin.entity.AiQuizRecord;
 import com.example.admin.mapper.AiSystemMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequestMapping("/api/ai")
@@ -19,6 +22,7 @@ public class AiSystemController {
 
     /** 复用 Spring AI（application.yml 里的 DeepSeek base-url + api-key + model） */
     private final ChatClient chatClient;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private static final String TUTOR_SYSTEM = """
             你是一个机器学习学习平台的【算法导师】。
@@ -144,6 +148,65 @@ public class AiSystemController {
         return Result.success(record.getId());
     }
 
+    /**
+     * 异步生成试卷：请求返回后后端继续执行，前端离开页面不会中断。
+     * status: 9=生成中, 0=未完成可作答, 1=已提交, -1=生成失败
+     */
+    @PostMapping("/quiz/generate")
+    public Result<Map<String, Object>> generateQuiz(@RequestBody Map<String, String> body, @RequestAttribute("userId") Long userId) {
+        String moduleId = body.getOrDefault("moduleId", "").trim();
+        String moduleName = body.getOrDefault("moduleName", moduleId).trim();
+        if (moduleId.isEmpty() || moduleName.isEmpty()) {
+            return Result.error("moduleId/moduleName 不能为空");
+        }
+
+        AiQuizRecord record = new AiQuizRecord();
+        record.setUserId(userId);
+        record.setModuleId(moduleId);
+        record.setTitle(moduleName + " 试卷生成中...");
+        record.setWeaknessAnalysis("生成中");
+        record.setQuizJson("{}");
+        aiSystemMapper.insertGeneratingQuiz(record);
+
+        Long recordId = record.getId();
+        CompletableFuture.runAsync(() -> {
+            try {
+                String prompt = """
+                        你是一个严谨的计算机科学出卷专家。请根据【%s】模块的重点，生成一套专属强化试卷。
+                        【试卷结构】：10道单选题，5道填空题，1道算法编程题（Python或C++）。
+                        【严禁捏造】：所有题目必须从权威教材、知名竞赛、或大厂面试题中提取或改编。
+                        【极度重要-输出格式】：你必须且只能输出一个合法的 JSON 对象，绝对不要包含任何 Markdown 标记（如 ```json ），不要输出任何其他文字。JSON 模板如下：
+                        {
+                          "title": "%s 算法原理与权威真题强化卷",
+                          "mcq": [
+                            { "id": "m1", "question": "题目...", "options": ["A. x", "B. y", "C. z", "D. w"], "answer": "A", "explanation": "解析...", "source": "出自: XXX" }
+                          ],
+                          "fill_in_the_blank": [
+                            { "id": "f1", "question": "题目...", "answer": "答案...", "explanation": "解析...", "source": "出自: XXX" }
+                          ],
+                          "coding": {
+                            "id": "c1", "question": "题目...", "language": "python", "template": "def func():\\n    pass", "answer": "标准代码...", "explanation": "解析...", "source": "出自: XXX"
+                          }
+                        }
+                        """.formatted(moduleName, moduleName);
+
+                String raw = chatClient.prompt().user(prompt).call().content();
+                String clean = raw.replace("```json", "").replace("```", "").trim();
+                JsonNode root = OBJECT_MAPPER.readTree(clean);
+                String normalizedJson = OBJECT_MAPPER.writeValueAsString(root);
+                String title = root.path("title").asText(moduleName + " 专项强化练习");
+                aiSystemMapper.finishQuizGeneration(recordId, userId, title, normalizedJson);
+            } catch (Exception e) {
+                aiSystemMapper.markQuizGenerateFailed(recordId, userId, "生成失败：" + e.getMessage());
+            }
+        });
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", recordId);
+        data.put("status", 9);
+        return Result.success(data);
+    }
+
     @PostMapping("/quiz/submit")
     public Result submitQuiz(@RequestBody AiQuizRecord record, @RequestAttribute("userId") Long userId) {
         aiSystemMapper.updateQuizResult(record.getId(), record.getScore(), record.getUserAnswers(), userId);
@@ -154,5 +217,13 @@ public class AiSystemController {
     public Result deleteQuiz(@PathVariable Long id, @RequestAttribute("userId") Long userId) {
         aiSystemMapper.deleteQuizById(id, userId);
         return Result.success("记录已删除");
+    }
+
+    @PostMapping("/quiz/{id}/rename")
+    public Result renameQuiz(@PathVariable Long id, @RequestBody Map<String, String> body, @RequestAttribute("userId") Long userId) {
+        String title = body.getOrDefault("title", "").trim();
+        if (title.isEmpty()) return Result.error("标题不能为空");
+        aiSystemMapper.renameQuiz(id, userId, title);
+        return Result.success("重命名成功");
     }
 }

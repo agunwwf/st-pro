@@ -11,12 +11,15 @@
     </header>
 
     <div v-loading="loading" class="body">
-      <div v-if="blocked" class="blocked-wrap">
-        <el-alert type="warning" :title="blockMsg" show-icon :closable="false" class="blocked-alert" />
-        <el-button type="primary" class="blocked-back" @click="goBack">返回教师中心</el-button>
-      </div>
-
-      <template v-else-if="payload">
+      <template v-if="payload">
+        <el-alert
+          v-if="payload.examEnded === false"
+          type="warning"
+          title="考试尚未截止：可查看已提交学生并进入批改，平均分将在截止后显示。"
+          show-icon
+          :closable="false"
+          class="blocked-alert"
+        />
         <section class="summary-cards">
           <el-card shadow="hover" class="stat-card">
             <div class="stat-label">班级人数</div>
@@ -32,7 +35,7 @@
           </el-card>
           <el-card shadow="hover" class="stat-card highlight">
             <div class="stat-label">平均得分</div>
-            <div class="stat-value">{{ payload.summary?.averageScore ?? 0 }}</div>
+            <div class="stat-value">{{ payload.summary?.averageScore ?? '-' }}</div>
           </el-card>
         </section>
 
@@ -46,13 +49,20 @@
         </section>
 
         <section class="table-block">
-          <h2>学生成绩</h2>
-          <el-table :data="payload.students || []" stripe border style="width: 100%">
-            <el-table-column prop="nickname" label="姓名" width="140">
-              <template #default="{ row }">{{ row.nickname || row.username }}</template>
+          <h2>已交卷学生（点击进入逐题批改）</h2>
+          <el-table :data="payload.students || []" stripe border style="width: 100%" @row-click="openReview">
+            <el-table-column label="学生" min-width="220">
+              <template #default="{ row }">
+                <div class="student-cell">
+                  <el-avatar :size="34" :src="row.avatar || ''" />
+                  <div class="student-meta">
+                    <div class="student-name">{{ row.nickname || row.username }}</div>
+                    <div class="student-username">{{ row.username }}</div>
+                  </div>
+                </div>
+              </template>
             </el-table-column>
-            <el-table-column prop="username" label="账号" width="140" />
-            <el-table-column prop="score" label="得分" width="100" />
+            <el-table-column prop="score" label="分数" width="100" />
             <el-table-column prop="status" label="状态" width="100">
               <template #default="{ row }">
                 <el-tag v-if="Number(row.status) >= 1" type="success" size="small">已交卷</el-tag>
@@ -61,6 +71,11 @@
             </el-table-column>
             <el-table-column prop="submitTime" label="交卷时间" min-width="180">
               <template #default="{ row }">{{ formatDateTime(row.submitTime) }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="140">
+              <template #default="{ row }">
+                <el-button size="small" type="primary" plain @click.stop="openReview(row)">查看/批改</el-button>
+              </template>
             </el-table-column>
           </el-table>
           <p v-if="!payload.students?.length" class="muted">暂无答卷记录（截止后仍未交卷的学生不会出现在表中）。</p>
@@ -101,8 +116,6 @@ const route = useRoute()
 const router = useRouter()
 
 const loading = ref(true)
-const blocked = ref(false)
-const blockMsg = ref('')
 const payload = ref(null)
 
 const barRef = ref(null)
@@ -120,7 +133,6 @@ const assignmentMeta = computed(() => {
 })
 
 const pageTitle = computed(() => {
-  if (blocked.value) return '考试数据分析'
   const n = payload.value?.assignment?.publishName
   return n ? `「${n}」数据分析` : '考试数据分析'
 })
@@ -132,6 +144,10 @@ const formatDateTime = (v) => {
 }
 
 const goBack = () => router.push('/management')
+const openReview = (row) => {
+  if (!row?.studentId) return
+  router.push(`/teacher/exam-review/${route.params.id}/${row.studentId}`)
+}
 
 const disposeCharts = () => {
   chartBar?.dispose()
@@ -188,8 +204,6 @@ const onResize = () => {
 
 const load = async () => {
   loading.value = true
-  blocked.value = false
-  blockMsg.value = ''
   payload.value = null
   try {
     const id = route.params.id
@@ -199,12 +213,10 @@ const load = async () => {
       await nextTick()
       initCharts()
     } else {
-      blocked.value = true
-      blockMsg.value = res.data?.msg || '无法加载分析数据'
+      payload.value = null
     }
   } catch (e) {
-    blocked.value = true
-    blockMsg.value = '网络异常，加载失败'
+    payload.value = null
   } finally {
     loading.value = false
   }
@@ -349,5 +361,22 @@ onBeforeUnmount(() => {
   font-size: 13px;
   color: #86868b;
   margin-top: 8px;
+}
+
+.student-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.student-name {
+  font-size: 14px;
+  color: #1d1d1f;
+  font-weight: 600;
+}
+
+.student-username {
+  font-size: 12px;
+  color: #8e8e93;
 }
 </style>

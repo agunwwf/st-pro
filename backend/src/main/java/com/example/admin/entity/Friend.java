@@ -14,6 +14,8 @@ public class Friend {
     private String friendUsername;
     private String friendNickname;
     private String friendAvatar;
+    private String friendSignature;
+    private Integer friendIsModel;
 
 
 
@@ -79,5 +81,21 @@ public class Friend {
 
     public void setFriendAvatar(String friendAvatar) {
         this.friendAvatar = friendAvatar;
+    }
+
+    public String getFriendSignature() {
+        return friendSignature;
+    }
+
+    public void setFriendSignature(String friendSignature) {
+        this.friendSignature = friendSignature;
+    }
+
+    public Integer getFriendIsModel() {
+        return friendIsModel;
+    }
+
+    public void setFriendIsModel(Integer friendIsModel) {
+        this.friendIsModel = friendIsModel;
     }
 }

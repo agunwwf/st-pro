@@ -71,8 +71,8 @@ public interface StudentExamMapper {
             "JOIN sys_assignment a ON pq.paper_id = a.paper_id WHERE a.id = #{assignmentId}")
     List<Map<String, Object>> listExamQuestionsWithAnswer(Long assignmentId);
 
-    @Insert("INSERT INTO sys_student_record(assignment_id, student_id, status, student_answers, submit_time) " +
-            "VALUES(#{assignmentId}, #{studentId}, 1, #{answers}, NOW()) " +
-            "ON DUPLICATE KEY UPDATE status = 1, student_answers = #{answers}, submit_time = NOW()")
-    void submitExamRecord(@Param("assignmentId") Long assignmentId, @Param("studentId") Long studentId, @Param("answers") String answers);
+    @Insert("INSERT INTO sys_student_record(assignment_id, student_id, status, score, student_answers, submit_time) " +
+            "VALUES(#{assignmentId}, #{studentId}, 1, #{score}, #{answers}, NOW()) " +
+            "ON DUPLICATE KEY UPDATE status = 1, score = #{score}, student_answers = #{answers}, submit_time = NOW()")
+    void submitExamRecord(@Param("assignmentId") Long assignmentId, @Param("studentId") Long studentId, @Param("answers") String answers, @Param("score") Integer score);
 }

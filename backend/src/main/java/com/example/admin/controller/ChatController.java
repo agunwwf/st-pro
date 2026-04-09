@@ -124,8 +124,18 @@ public class ChatController {
 
     // 6. 获取聊天记录
     @GetMapping("/messages")
-    public Result getMessages(@RequestParam String user1, @RequestParam String user2) {
-        return Result.success(messageMapper.getHistory(user1, user2));
+    public Result getMessages(@RequestParam String user1, @RequestParam String user2, HttpServletRequest request) {
+        String me = (String) request.getAttribute("username");
+        if (me == null || me.trim().isEmpty()) return Result.error("请先登录");
+        // 只允许查询自己的会话，防止越权读取
+        if (!me.equals(user1) && !me.equals(user2)) return Result.error("无权限查看该会话");
+        String peer = me.equals(user1) ? user2 : user1;
+        messageMapper.ensureClearLogTable();
+        java.time.LocalDateTime clearTime = messageMapper.getClearTime(me, peer);
+        if (clearTime != null) {
+            return Result.success(messageMapper.getHistoryAfter(me, peer, clearTime));
+        }
+        return Result.success(messageMapper.getHistory(me, peer));
     }
 
     // 6.1 保存消息（落库），刷新后仍可读到历史记录
@@ -166,6 +176,21 @@ public class ChatController {
         return Result.success("ok");
     }
 
+    // 6.2 清空“我”的会话记录（不影响对方）
+    @PostMapping("/messages/clear")
+    public Result clearMyConversation(@RequestBody Map<String, Object> payload, HttpServletRequest request) {
+        String me = (String) request.getAttribute("username");
+        if (me == null || me.trim().isEmpty()) return Result.error("请先登录");
+        Object peerObj = payload.get("peerUsername");
+        if (peerObj == null) return Result.error("peerUsername 不能为空");
+        String peer = peerObj.toString().trim();
+        if (peer.isEmpty()) return Result.error("peerUsername 不能为空");
+        if (peer.equals(me)) return Result.error("不能清空自己的自聊会话");
+        messageMapper.ensureClearLogTable();
+        messageMapper.upsertClearTime(me, peer, LocalDateTime.now());
+        return Result.success("已清空你与该用户的聊天记录（仅你可见）");
+    }
+
 
     // 7. 文件上传（生成 API 访问链接，而不是物理静态链接）
     @PostMapping("/upload")
@@ -175,7 +200,7 @@ public class ChatController {
         }
 
         try {
-            // 还是存在本地 uploads 文件夹
+          
             Path uploadDir = Paths.get(System.getProperty("user.dir"), "uploads");
             if (!Files.exists(uploadDir)) {
                 Files.createDirectories(uploadDir);
@@ -185,13 +210,13 @@ public class ChatController {
             String ext = originalName != null && originalName.lastIndexOf('.') >= 0
                     ? originalName.substring(originalName.lastIndexOf('.')) : "";
 
-            // 重新命名防止冲突
+      
             String filename = UUID.randomUUID().toString().replace("-", "") + ext;
             Path target = uploadDir.resolve(filename);
 
             Files.copy(file.getInputStream(), target);
 
-            // ：返回的不再是静态路径，而是一个 API 接口地址
+            //返回一个 API 接口地址
             String url = "/api/chat/file/" + filename;
 
             Map<String, String> data = new HashMap<>();

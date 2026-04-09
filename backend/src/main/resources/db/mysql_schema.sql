@@ -73,6 +73,17 @@ CREATE TABLE IF NOT EXISTS `sys_user` (
                                           UNIQUE KEY `uk_username` (`username`),
                                           KEY `idx_teacher_id` (`teacher_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- 用户改账号次数控制：每个用户每月最多 5 次
+CREATE TABLE IF NOT EXISTS `sys_user_username_change_log` (
+    `id` bigint NOT NULL AUTO_INCREMENT,
+    `user_id` bigint NOT NULL,
+    `year_month` char(6) NOT NULL COMMENT '格式 yyyyMM',
+    `change_count` int NOT NULL DEFAULT 0,
+    `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_user_month` (`user_id`, `year_month`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 -- 论坛帖子主表
 CREATE TABLE IF NOT EXISTS `sys_forum_post` (
                                                 `id` bigint NOT NULL AUTO_INCREMENT,

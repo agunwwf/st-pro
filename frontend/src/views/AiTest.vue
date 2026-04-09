@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue';
-import { Sun, Moon, MessageSquare, BrainCircuit, LayoutDashboard } from 'lucide-vue-next';
+import { Sun, Moon, MessageSquare, LayoutDashboard } from 'lucide-vue-next';
 import AIChatTutor from '../components/AIChatTutor.vue';
 import AIQuizSystem from '../components/AIQuizSystem.vue';
 
@@ -25,15 +25,7 @@ const switchToQuiz = () => {
 <template>
   <div :class="['page-wrapper', isDarkMode ? 'dark' : '']">
     <header class="app-header">
-      <div class="header-left">
-        <div class="logo-box">
-          <BrainCircuit :size="22" />
-        </div>
-        <div class="title-group">
-          <h1>AI 智能测评中心</h1>
-
-        </div>
-      </div>
+      <div class="header-left"></div>
 
       <div class="header-right">
         <button @click="toggleTheme" class="icon-btn theme-toggle">
@@ -95,30 +87,17 @@ const switchToQuiz = () => {
 /* Header 样式 */
 .app-header {
   display: flex;
+  justify-content: flex-end;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 20px;
-  border-bottom: 1px solid var(--border-color);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  backdrop-filter: blur(20px);
-  background-color: var(--header-bg);
+  padding: 0 8px 4px 8px;
+  border: none;
+  background: transparent;
+  position: relative;
+  z-index: 20;
 }
 
-.header-left { display: flex; align-items: center; gap: 15px; }
-.logo-box {
-  width: 40px; height: 40px; border-radius: 12px;
-  background: var(--accent-color);
-  color: var(--bg-color);
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-.title-group h1 { font-size: 16px; font-weight: 800; margin: 0; }
-.subtitle { font-size: 10px; font-weight: 900; color: #86868b; letter-spacing: 2px; margin: 0; }
-
-.header-right { display: flex; align-items: center; gap: 24px; }
+.header-left { min-width: 1px; }
+.header-right { display: flex; align-items: center; gap: 12px; margin-left: auto; }
 
 /* 胶囊切换 */
 .segmented-control {
@@ -149,8 +128,8 @@ const switchToQuiz = () => {
   overflow: hidden; /* 外层不滚动，避免整体框随鼠标滚动跑出 header */
   max-width: none;
   width: 100%;
-  margin: 0 auto;
-  padding: 14px 18px;
+  margin: 0;
+  padding: 0;
   display: flex;
 }
 

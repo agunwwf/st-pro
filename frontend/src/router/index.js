@@ -55,6 +55,12 @@ const routes = [
     meta: { title: '考试数据分析', requiresAuth: true, role: 'ADMIN' }
   },
   {
+    path: '/teacher/exam-review/:id/:studentId',
+    name: 'TeacherExamReview',
+    component: () => import('../views/TeacherExamReview.vue'),
+    meta: { title: '教师批改试卷', requiresAuth: true, role: 'ADMIN' }
+  },
+  {
     path: '/forum/create',
     name: 'CreatePost',
     component: () => import('../forum/CreatePost.vue'),
@@ -87,6 +93,7 @@ const routes = [
         path: 'AiTest',
         name: 'AiTest',
         component: () => import('../views/AiTest.vue'),
+        meta: { title: 'AI智能测评中心', requiresAuth: true }
       },
       {
         path: 'projects',

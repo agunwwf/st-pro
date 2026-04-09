@@ -2,7 +2,10 @@
   <div class="profile-container">
     <div class="glass-card profile-header">
       <div class="avatar-section">
-        <el-avatar :size="100" :src="form.avatar" class="profile-avatar" @click="openAvatarPreview" />
+        <div class="avatar-badge-wrap">
+          <el-avatar :size="100" :src="form.avatar" class="profile-avatar" @click="openAvatarPreview" />
+          <span v-if="form.isModel === 1 || form.isModel === true" class="model-badge" title="模范学生">★</span>
+        </div>
         <el-button class="change-avatar-btn" plain @click="startAvatarChange">更换头像</el-button>
       </div>
       <div class="info-section">
@@ -52,17 +55,63 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="passwordDialogVisible" title="修改密码" width="460px" class="apple-dialog" @open="resetPasswordDialog">
+      <div v-if="passwordStep === 1">
+        <el-form label-position="top" size="large" class="apple-form">
+          <el-form-item label="请填写旧密码（校验通过后进入下一步）">
+            <el-input
+              v-model="verifyForm.oldPassword"
+              type="password"
+              placeholder="请输入旧密码"
+              autocomplete="new-password"
+              name="old-password-manual"
+            />
+          </el-form-item>
+        </el-form>
+      </div>
+      <div v-else>
+        <el-form label-position="top" size="large" class="apple-form">
+          <el-form-item label="新密码（6-12位）">
+            <el-input
+              v-model="passwordForm.newPassword"
+              type="password"
+              maxlength="12"
+              placeholder="请输入新密码"
+              autocomplete="new-password"
+              name="new-password-manual"
+            />
+          </el-form-item>
+          <el-form-item label="确认新密码">
+            <el-input
+              v-model="passwordForm.confirmPassword"
+              type="password"
+              maxlength="12"
+              placeholder="请再次输入新密码"
+              autocomplete="new-password"
+              name="confirm-password-manual"
+            />
+          </el-form-item>
+        </el-form>
+      </div>
+      <template #footer>
+        <el-button @click="passwordDialogVisible = false" round>取消</el-button>
+        <el-button v-if="passwordStep === 1" type="primary" :loading="verifyingOldPassword" @click="verifyOldPasswordAndNext" round>
+          下一步
+        </el-button>
+        <el-button v-else @click="backToVerifyOldPassword" round>上一步</el-button>
+        <el-button v-if="passwordStep === 2" type="warning" :loading="changingPassword" @click="changePassword" round>
+          确认修改密码
+        </el-button>
+      </template>
+    </el-dialog>
+
     <div class="glass-card form-section">
       <el-form :model="form" label-position="top" size="large" class="apple-form">
         <div class="section-group">
           <h3 class="section-title">账户基本信息</h3>
           <div class="kv-grid">
             <div class="kv-item">
-              <div class="kv-label">用户ID</div>
-              <div class="kv-value">{{ form.id ?? '-' }}</div>
-            </div>
-            <div class="kv-item">
-              <div class="kv-label">账号</div>
+              <div class="kv-label">账号ID</div>
               <div class="kv-value">{{ form.username || '-' }}</div>
             </div>
             <div class="kv-item">
@@ -70,6 +119,13 @@
               <div class="kv-value">{{ form.ipLocation || '-' }}</div>
             </div>
           </div>
+
+          <el-form-item label="修改账号（每月最多5次）">
+            <div class="inline-action">
+              <el-input v-model="accountForm.newUsername" placeholder="请输入新账号" />
+              <el-button type="primary" :loading="changingAccount" @click="changeAccount">确认修改</el-button>
+            </div>
+          </el-form-item>
 
           <el-form-item label="公开昵称"><el-input v-model="form.nickname" placeholder="请输入您的昵称" /></el-form-item>
           <el-form-item label="个性签名"><el-input v-model="form.signature" type="textarea" :rows="3" placeholder="用一句话描述自己..." resize="none" /></el-form-item>
@@ -100,6 +156,9 @@
         </transition>
 
         <div class="form-actions">
+          <el-button type="warning" plain size="large" @click="openPasswordDialog" :loading="changingPassword" round>
+            修改密码
+          </el-button>
           <el-button type="primary" size="large" @click="save" :loading="saving" class="save-btn" round>保存资料修改</el-button>
         </div>
       </el-form>
@@ -150,9 +209,25 @@ const form = reactive({
   gender: '保密',
   birthday: '',
   region: '',
-  ipLocation: ''
+  ipLocation: '',
+  isModel: 0
 })
 const saving = ref(false)
+const changingAccount = ref(false)
+const changingPassword = ref(false)
+const verifyingOldPassword = ref(false)
+const passwordDialogVisible = ref(false)
+const passwordStep = ref(1)
+const accountForm = reactive({
+  newUsername: ''
+})
+const verifyForm = reactive({
+  oldPassword: ''
+})
+const passwordForm = reactive({
+  newPassword: '',
+  confirmPassword: ''
+})
 
 const handleAvatarChange = async (uploadFile) => {
   const file = uploadFile?.raw
@@ -228,12 +303,20 @@ onMounted(async () => {
       form.avatar = u.avatar || 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png'
       form.gender = u.gender || '保密'
       form.birthday = u.birthday || ''
-      form.region = u.region || ''
+      form.region = normalizeRegion(u.region)
       form.ipLocation = u.ipLocation || ''
+      form.isModel = u.isModel || 0
       userRole.value = u.role || 'STUDENT'
     }
   } catch (e) {}
 })
+
+const normalizeRegion = (val) => {
+  const s = String(val || '').trim()
+  // 兜底：避免历史脏数据把手机号显示在“地区”
+  if (/^\d{7,}$/.test(s)) return ''
+  return s
+}
 
 const save = async () => {
   saving.value = true
@@ -258,6 +341,107 @@ const save = async () => {
     saving.value = false
   }
 }
+
+const changeAccount = async () => {
+  const nextName = (accountForm.newUsername || '').trim()
+  if (!nextName) return ElMessage.warning('请输入新账号')
+  if (nextName === form.username) return ElMessage.warning('新账号不能与当前账号一致')
+  changingAccount.value = true
+  try {
+    const res = await axios.post('/api/user/account/change', { newUsername: nextName })
+    if (res.data.code === 200) {
+      ElMessage.success('账号修改成功，请重新登录')
+      try {
+        const me = await axios.get('/api/user/me')
+        if (me.data.code === 200) {
+          const user = me.data.data || {}
+          localStorage.setItem('user', JSON.stringify(user))
+          form.username = user.username || form.username
+          form.nickname = user.nickname || form.nickname
+        }
+      } catch (e) {}
+      accountForm.newUsername = ''
+    } else {
+      ElMessage.error(res.data.msg || '账号修改失败')
+    }
+  } catch (e) {
+    ElMessage.error('账号修改失败')
+  } finally {
+    changingAccount.value = false
+  }
+}
+
+const openPasswordDialog = () => {
+  passwordDialogVisible.value = true
+  resetPasswordDialog()
+}
+
+const backToVerifyOldPassword = () => {
+  passwordStep.value = 1
+  passwordForm.newPassword = ''
+  passwordForm.confirmPassword = ''
+}
+
+const resetPasswordDialog = () => {
+  passwordStep.value = 1
+  verifyForm.oldPassword = ''
+  passwordForm.newPassword = ''
+  passwordForm.confirmPassword = ''
+}
+
+const verifyOldPasswordAndNext = async () => {
+  if (!verifyForm.oldPassword) return ElMessage.warning('请输入旧密码')
+  verifyingOldPassword.value = true
+  try {
+    const res = await axios.post('/api/user/password/verify', {
+      oldPassword: verifyForm.oldPassword
+    })
+    if (res.data.code === 200) {
+      ElMessage.success('旧密码校验通过')
+      passwordStep.value = 2
+    } else {
+      ElMessage.error(res.data.msg || '旧密码错误')
+    }
+  } catch (e) {
+    ElMessage.error('旧密码校验失败')
+  } finally {
+    verifyingOldPassword.value = false
+  }
+}
+
+const changePassword = async () => {
+  if (!verifyForm.oldPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+    return ElMessage.warning('请完整填写密码信息')
+  }
+  if (passwordForm.newPassword.length < 6 || passwordForm.newPassword.length > 12) {
+    return ElMessage.warning('新密码必须为6-12位')
+  }
+  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+    return ElMessage.warning('两次输入的新密码不一致')
+  }
+  changingPassword.value = true
+  try {
+    const res = await axios.post('/api/user/password/change', {
+      oldPassword: verifyForm.oldPassword,
+      newPassword: passwordForm.newPassword,
+      confirmPassword: passwordForm.confirmPassword
+    })
+    if (res.data.code === 200) {
+      ElMessage.success('密码修改成功')
+      verifyForm.oldPassword = ''
+      passwordForm.newPassword = ''
+      passwordForm.confirmPassword = ''
+      passwordDialogVisible.value = false
+      passwordStep.value = 1
+    } else {
+      ElMessage.error(res.data.msg || '密码修改失败')
+    }
+  } catch (e) {
+    ElMessage.error('密码修改失败')
+  } finally {
+    changingPassword.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -266,7 +450,23 @@ const save = async () => {
 .glass-card { background: #ffffff; border: 1px solid #e5e5ea; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
 .profile-header { padding: 40px; display: flex; align-items: center; gap: 32px; }
 .avatar-section { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.avatar-badge-wrap { position: relative; display: inline-flex; }
 .profile-avatar { border: 2px solid #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.08); cursor: pointer; }
+.model-badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ffb020;
+  color: #fff;
+  font-size: 13px;
+  line-height: 22px;
+  text-align: center;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
 .change-avatar-btn {
   color: #606266 !important;
   height: 32px;
@@ -299,7 +499,8 @@ const save = async () => {
 .section-group { margin-bottom: 32px; }
 .section-title { margin: 0 0 20px 0; font-size: 17px; font-weight: 600; color: #1d1d1f; }
 .form-divider { height: 1px; background: #e5e5ea; margin: 0 0 32px 0; }
-.form-actions { margin-top: 40px; display: flex; justify-content: flex-end; }
+.form-actions { margin-top: 40px; display: flex; justify-content: flex-end; gap: 10px; }
+.inline-action { display: grid; grid-template-columns: 1fr auto; gap: 10px; width: 100%; }
 :deep(.el-form-item__label) { font-size: 14px; color: #1d1d1f; font-weight: 500; margin-bottom: 8px !important; padding: 0 !important; }
 :deep(.el-input__wrapper), :deep(.el-textarea__inner) { border-radius: 8px; box-shadow: none !important; background: #fbfcfe; border: 1px solid #d2d2d7; }
 :deep(.el-input__wrapper.is-focus), :deep(.el-textarea__inner:focus) { border-color: #0071e3 !important; background: #fff; }

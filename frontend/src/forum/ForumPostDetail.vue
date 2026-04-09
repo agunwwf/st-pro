@@ -682,9 +682,10 @@ onUnmounted(() => {
 }
 
 .state-wrap {
-  max-width: 720px;
-  margin: 48px auto;
-  padding: 0 24px;
+  width: calc(100% - 20px);
+  max-width: none;
+  margin: 18px auto;
+  padding: 0;
   &.empty {
     text-align: center;
     color: #86868b;
@@ -696,15 +697,16 @@ onUnmounted(() => {
 }
 
 .article-shell {
-  max-width: 820px;
-  margin: 0 auto 80px;
-  padding: 24px 20px 48px;
+  width: calc(100% - 20px);
+  max-width: none;
+  margin: 10px auto 20px;
+  padding: 0 0 20px;
 }
 
 .hero {
   border-radius: 24px;
-  padding: 48px 40px 40px;
-  margin-bottom: -32px;
+  padding: 48px 40px 52px;
+  margin-bottom: 12px;
   position: relative;
   overflow: hidden;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
@@ -722,7 +724,7 @@ onUnmounted(() => {
 .hero-cover-hint {
   position: absolute;
   right: 16px;
-  bottom: 16px;
+  bottom: 20px;
   z-index: 2;
   display: flex;
   align-items: center;
@@ -791,7 +793,7 @@ onUnmounted(() => {
   z-index: 2;
   background: #fff;
   border-radius: 24px;
-  padding: 48px 40px 32px;
+  padding: 36px 40px 32px;
   border: 1px solid rgba(0, 0, 0, 0.06);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.08);
 }

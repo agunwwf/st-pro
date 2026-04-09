@@ -189,10 +189,7 @@ public class TeacherAdminController {
         return Result.success((Object) null);
     }
 
-    /**
-     * 考试截止后的数据分析：班级参与、均分、每题正确率与未作答人数等。
-     * 未截止返回错误文案，前端提示即可。
-     */
+   
     @GetMapping("/lms/assignment/{assignmentId}/analytics")
     public Result<Map<String, Object>> assignmentAnalytics(HttpServletRequest request, @PathVariable Long assignmentId) {
         if (!isAdmin(request)) return Result.error("未授权访问");
@@ -208,9 +205,7 @@ public class TeacherAdminController {
         }
 
         LocalDateTime end = toLocalDateTime(assign.get("endTime"));
-        if (end != null && LocalDateTime.now(ZoneId.systemDefault()).isBefore(end)) {
-            return Result.error("考试尚未截止，截止后可查看数据分析");
-        }
+        boolean examEnded = end == null || !LocalDateTime.now(ZoneId.systemDefault()).isBefore(end);
 
         int classSize = teacherAdminMapper.countStudentsInClass(teacherId);
         List<Map<String, Object>> rawRecords = teacherAdminMapper.listRecordsForAssignment(assignmentId);
@@ -279,6 +274,7 @@ public class TeacherAdminController {
             s.put("studentId", row.get("studentId"));
             s.put("username", row.get("username"));
             s.put("nickname", row.get("nickname"));
+            s.put("avatar", row.get("avatar"));
             s.put("status", row.get("status"));
             s.put("score", row.get("score"));
             s.put("submitTime", row.get("submitTime"));
@@ -289,13 +285,160 @@ public class TeacherAdminController {
         summary.put("classSize", classSize);
         summary.put("submittedCount", submittedCount);
         summary.put("notSubmittedCount", notSubmittedCount);
-        summary.put("averageScore", avg.doubleValue());
+        summary.put("averageScore", examEnded ? avg.doubleValue() : null);
 
         Map<String, Object> data = new HashMap<>();
         data.put("assignment", assign);
         data.put("summary", summary);
         data.put("students", studentRows);
         data.put("questions", questionStats);
+        data.put("examEnded", examEnded);
+        return Result.success(data);
+    }
+
+    /** 已交卷学生列表（用于教师逐份批改入口） */
+    @GetMapping("/lms/assignment/{assignmentId}/submissions")
+    public Result<List<Map<String, Object>>> assignmentSubmissions(HttpServletRequest request, @PathVariable Long assignmentId) {
+        if (!isAdmin(request)) return Result.error("未授权访问");
+        Long teacherId = getUserIdFromToken(request);
+        if (teacherId == null) return Result.error("未授权访问");
+        Map<String, Object> assign = teacherAdminMapper.getAssignmentForTeacher(assignmentId, teacherId);
+        if (assign == null) return Result.error("考试任务不存在");
+
+        List<Map<String, Object>> rows = teacherAdminMapper.listRecordsForAssignment(assignmentId);
+        List<Map<String, Object>> submitted = new ArrayList<>();
+        for (Map<String, Object> row : rows) {
+            int st = row.get("status") == null ? 0 : Integer.parseInt(String.valueOf(row.get("status")));
+            if (st >= 1) {
+                submitted.add(row);
+            }
+        }
+        return Result.success(submitted);
+    }
+
+    /** 查看某个学生该场考试的整份答卷详情（老师批改用） */
+    @GetMapping("/lms/assignment/{assignmentId}/submission/{studentId}")
+    public Result<Map<String, Object>> submissionDetail(
+            HttpServletRequest request,
+            @PathVariable Long assignmentId,
+            @PathVariable Long studentId
+    ) {
+        if (!isAdmin(request)) return Result.error("未授权访问");
+        Long teacherId = getUserIdFromToken(request);
+        if (teacherId == null) return Result.error("未授权访问");
+        Map<String, Object> assign = teacherAdminMapper.getAssignmentForTeacher(assignmentId, teacherId);
+        if (assign == null) return Result.error("考试任务不存在");
+
+        Map<String, Object> examTitleRow = studentExamMapper.getExamDetail(assignmentId);
+        if (examTitleRow != null && examTitleRow.get("paperTitle") != null) {
+            assign = new HashMap<>(assign);
+            assign.put("paperTitle", examTitleRow.get("paperTitle"));
+        }
+
+        Map<String, Object> rec = teacherAdminMapper.getSubmissionRecord(assignmentId, studentId);
+        if (rec == null) return Result.error("该学生暂无答卷");
+        int st = rec.get("status") == null ? 0 : Integer.parseInt(String.valueOf(rec.get("status")));
+        if (st < 1) return Result.error("该学生尚未交卷");
+
+        JsonNode answerRoot;
+        try {
+            String j = rec.get("answersJson") == null ? "{}" : String.valueOf(rec.get("answersJson"));
+            answerRoot = OBJECT_MAPPER.readTree(j.isBlank() ? "{}" : j);
+        } catch (Exception e) {
+            answerRoot = OBJECT_MAPPER.createObjectNode();
+        }
+
+        List<Map<String, Object>> questions = studentExamMapper.listExamQuestionsWithAnswer(assignmentId);
+        List<Map<String, Object>> details = new ArrayList<>();
+        int idx = 1;
+        for (Map<String, Object> q : questions) {
+            Long qid = Long.valueOf(String.valueOf(q.get("id")));
+            int fullScore = q.get("score") == null ? 0 : Integer.parseInt(String.valueOf(q.get("score")));
+            String studentAns = readAnswerForQuestion(answerRoot, qid);
+            String std = q.get("standardAnswer") == null ? "" : String.valueOf(q.get("standardAnswer"));
+            boolean matched = answersMatch(String.valueOf(q.get("type")), studentAns, std);
+
+            Map<String, Object> item = new HashMap<>(q);
+            item.put("index", idx++);
+            item.put("studentAnswer", studentAns);
+            item.put("fullScore", fullScore);
+            item.put("suggestScore", matched ? fullScore : 0);
+            details.add(item);
+        }
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("assignment", assign);
+        data.put("student", rec);
+        data.put("questions", details);
+        return Result.success(data);
+    }
+
+    /** 老师重评分：按每题给分，回写总分（学生端与统计会自动同步） */
+    @PostMapping("/lms/assignment/{assignmentId}/submission/{studentId}/rescore")
+    @Transactional
+    public Result<Map<String, Object>> rescoreSubmission(
+            HttpServletRequest request,
+            @PathVariable Long assignmentId,
+            @PathVariable Long studentId,
+            @RequestBody Map<String, Object> body
+    ) {
+        if (!isAdmin(request)) return Result.error("未授权访问");
+        Long teacherId = getUserIdFromToken(request);
+        if (teacherId == null) return Result.error("未授权访问");
+        if (teacherAdminMapper.getAssignmentForTeacher(assignmentId, teacherId) == null) {
+            return Result.error("考试任务不存在");
+        }
+
+        Map<String, Object> rec = teacherAdminMapper.getSubmissionRecord(assignmentId, studentId);
+        if (rec == null) return Result.error("该学生暂无答卷");
+        int st = rec.get("status") == null ? 0 : Integer.parseInt(String.valueOf(rec.get("status")));
+        if (st < 1) return Result.error("该学生尚未交卷");
+
+        Object scoresObj = body.get("questionScores");
+        if (!(scoresObj instanceof Map<?, ?> scoreMapRaw)) {
+            return Result.error("缺少 questionScores");
+        }
+
+        JsonNode answerRoot;
+        try {
+            String j = rec.get("answersJson") == null ? "{}" : String.valueOf(rec.get("answersJson"));
+            answerRoot = OBJECT_MAPPER.readTree(j.isBlank() ? "{}" : j);
+        } catch (Exception e) {
+            answerRoot = OBJECT_MAPPER.createObjectNode();
+        }
+
+        List<Map<String, Object>> questions = studentExamMapper.listExamQuestionsWithAnswer(assignmentId);
+        int total = 0;
+        for (Map<String, Object> q : questions) {
+            Long qid = Long.valueOf(String.valueOf(q.get("id")));
+            int full = q.get("score") == null ? 0 : Integer.parseInt(String.valueOf(q.get("score")));
+            String qType = q.get("type") == null ? "" : String.valueOf(q.get("type"));
+            int sc;
+            // 选择题不允许人工改分：固定按标准答案自动判分
+            if ("选择题".equals(qType)) {
+                String studentAns = readAnswerForQuestion(answerRoot, qid);
+                String std = q.get("standardAnswer") == null ? "" : String.valueOf(q.get("standardAnswer"));
+                sc = answersMatch(qType, studentAns, std) ? full : 0;
+            } else {
+                Object scObj = scoreMapRaw.get(String.valueOf(qid));
+                if (scObj == null) scObj = scoreMapRaw.get(qid);
+                sc = 0;
+                if (scObj != null) {
+                    try {
+                        sc = Integer.parseInt(String.valueOf(scObj));
+                    } catch (Exception ignored) {
+                        sc = 0;
+                    }
+                }
+            }
+            if (sc < 0) sc = 0;
+            if (sc > full) sc = full;
+            total += sc;
+        }
+
+        teacherAdminMapper.updateSubmissionScore(assignmentId, studentId, total);
+        Map<String, Object> data = new HashMap<>();
+        data.put("score", total);
         return Result.success(data);
     }
 

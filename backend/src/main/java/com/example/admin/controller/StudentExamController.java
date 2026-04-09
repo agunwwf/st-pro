@@ -1,6 +1,8 @@
 package com.example.admin.controller;
 
 import com.example.admin.mapper.StudentExamMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,6 +16,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/student/exam")
 public class StudentExamController {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Autowired
     private StudentExamMapper studentExamMapper;
@@ -134,7 +137,54 @@ public class StudentExamController {
             return Result.error("已提交，禁止重复交卷");
         }
 
-        studentExamMapper.submitExamRecord(assignmentId, studentId, answersJson);
+        Integer score = calcScore(assignmentId, answersJson);
+        studentExamMapper.submitExamRecord(assignmentId, studentId, answersJson, score);
         return Result.success((Object) null);
+    }
+
+    private Integer calcScore(Long assignmentId, String answersJson) {
+        JsonNode answerRoot;
+        try {
+            answerRoot = OBJECT_MAPPER.readTree(answersJson == null ? "{}" : answersJson);
+        } catch (Exception e) {
+            answerRoot = OBJECT_MAPPER.createObjectNode();
+        }
+
+        int total = 0;
+        List<Map<String, Object>> questions = studentExamMapper.listExamQuestionsWithAnswer(assignmentId);
+        for (Map<String, Object> q : questions) {
+            Object idObj = q.get("id");
+            if (idObj == null) continue;
+            String qid = String.valueOf(idObj);
+            String standard = q.get("standardAnswer") == null ? "" : String.valueOf(q.get("standardAnswer"));
+            int score = q.get("score") == null ? 0 : Integer.parseInt(String.valueOf(q.get("score")));
+
+            JsonNode ansNode = answerRoot.get(qid);
+            String studentAns = ansNode == null || ansNode.isNull() ? "" : ansNode.asText("");
+            if (answerMatched(studentAns, standard)) {
+                total += score;
+            }
+        }
+        return total;
+    }
+
+    private boolean answerMatched(String studentAns, String standardAns) {
+        String s = normalize(studentAns);
+        String t = normalize(standardAns);
+        if (s.isEmpty() || t.isEmpty()) return false;
+
+        // 标准答案可能写成 A/B、A|B、A或B，任一命中即算对
+        String[] candidates = t.split("\\\\|/|或");
+        for (String c : candidates) {
+            if (s.equals(normalize(c))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String normalize(String v) {
+        if (v == null) return "";
+        return v.trim().replaceAll("\\s+", "").toUpperCase();
     }
 }

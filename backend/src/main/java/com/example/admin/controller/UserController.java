@@ -9,6 +9,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/user")
@@ -199,6 +202,70 @@ public class UserController {
         }
         userService.updateById(user);
         return Result.success("Profile updated");
+    }
+
+    @PostMapping("/account/change")
+    public Result<Object> changeAccount(HttpServletRequest req, @RequestBody Map<String, String> body) {
+        Long userId = (Long) req.getAttribute("userId");
+        if (userId == null) return Result.error("请先登录");
+        String newUsername = body.get("newUsername") == null ? "" : body.get("newUsername").trim();
+        if (newUsername.isEmpty()) return Result.error("新账号不能为空");
+
+        User me = userService.getById(userId);
+        if (me == null) return Result.error("用户不存在");
+        if (newUsername.equals(me.getUsername())) return Result.error("新账号不能与当前账号一致");
+        if (userMapper.countUsernameExistsExcludeId(userId, newUsername) > 0) return Result.error("该账号已存在");
+
+        String ym = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMM"));
+        Integer changed = userMapper.getUsernameChangeCount(userId, ym);
+        int count = changed == null ? 0 : changed;
+        if (count >= 5) return Result.error("本月账号修改次数已达上限（5次）");
+
+        userMapper.updateUsernameById(userId, newUsername);
+        userMapper.increaseUsernameChangeCount(userId, ym);
+        return Result.success("账号修改成功");
+    }
+
+    @PostMapping("/password/change")
+    public Result<Object> changePassword(HttpServletRequest req, @RequestBody Map<String, String> body) {
+        Long userId = (Long) req.getAttribute("userId");
+        if (userId == null) return Result.error("请先登录");
+        String oldPassword = body.get("oldPassword") == null ? "" : body.get("oldPassword");
+        String newPassword = body.get("newPassword") == null ? "" : body.get("newPassword");
+        String confirmPassword = body.get("confirmPassword") == null ? "" : body.get("confirmPassword");
+
+        if (oldPassword.isEmpty() || newPassword.isEmpty() || confirmPassword.isEmpty()) {
+            return Result.error("请完整填写密码信息");
+        }
+        if (newPassword.length() < 6 || newPassword.length() > 12) {
+            return Result.error("新密码必须为6-12位");
+        }
+        if (!newPassword.equals(confirmPassword)) {
+            return Result.error("两次输入的新密码不一致");
+        }
+        User me = userService.getById(userId);
+        if (me == null) return Result.error("用户不存在");
+        if (!oldPassword.equals(me.getPassword())) {
+            return Result.error("旧密码错误");
+        }
+        if (oldPassword.equals(newPassword)) {
+            return Result.error("新密码不能与旧密码相同");
+        }
+
+        userMapper.updatePasswordById(userId, newPassword);
+        return Result.success("密码修改成功");
+    }
+
+    @PostMapping("/password/verify")
+    public Result<Object> verifyOldPassword(HttpServletRequest req, @RequestBody Map<String, String> body) {
+        Long userId = (Long) req.getAttribute("userId");
+        if (userId == null) return Result.error("请先登录");
+        String oldPassword = body.get("oldPassword") == null ? "" : body.get("oldPassword");
+        if (oldPassword.isEmpty()) return Result.error("请输入旧密码");
+        User me = userService.getById(userId);
+        if (me == null) return Result.error("用户不存在");
+        if (!oldPassword.equals(me.getPassword())) return Result.error("旧密码错误");
+        return Result.success("校验通过");
     }
 
     @GetMapping("/search")

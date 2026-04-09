@@ -16,7 +16,13 @@
 
     <!-- 统计完成 -->
     <div class="stats-grid">
-      <div class="stat-card glass-card" v-for="stat in stats" :key="stat.label">
+      <div
+        class="stat-card glass-card"
+        :class="{ clickable: !!stat.clickable }"
+        v-for="stat in stats"
+        :key="stat.label"
+        @click="handleStatClick(stat)"
+      >
 
         <el-popover
             v-if="stat.label === '已完成教学'"
@@ -137,11 +143,13 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed, reactive } from 'vue'
+import { useRouter } from 'vue-router'
 import { Timer, Checked, Star, Reading } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
 window.axios = request
 import SkillTreeChart from '@/components/SkillTreeChart.vue';
+const router = useRouter()
 
 const user = ref({})
 const threadList = ref([])
@@ -255,9 +263,18 @@ const stats = computed(() => [
     icon: Checked,
     color: '#34C759',
   },
-  { label: '模范学生', value: user.value.isModel ? 'Yes' : 'No', icon: Star, color: '#FF9F0A' },
+  user.value.role === 'ADMIN'
+    ? { label: '点击查看', value: '模范学生', icon: Star, color: '#FF9F0A', clickable: true, action: 'goModelStudents' }
+    : { label: '模范学生', value: user.value.isModel ? '是' : '否', icon: Star, color: '#FF9F0A' },
   { label: '阅读笔记', value: '24', icon: Reading, color: '#AF52DE' }
 ])
+
+const handleStatClick = (stat) => {
+  if (!stat?.clickable || !stat?.action) return
+  if (stat.action === 'goModelStudents') {
+    router.push({ path: '/management', query: { view: 'students' } })
+  }
+}
 
 const formatOnlineTime = (seconds) => {
   const h = Math.floor(seconds / 3600)
@@ -403,6 +420,8 @@ onUnmounted(() => {
   .stat-icon { width: 64px; height: 64px; border-radius: 20px; display: flex; align-items: center; justify-content: center; color: white; font-size: 28px; }
   .stat-info { display: flex; flex-direction: column; .stat-value { font-size: 28px; font-weight: 700; } .stat-label { font-size: 16px; color: #86868b; font-weight: 500; } }
 }
+.stat-card.clickable { cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.stat-card.clickable:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08); }
 
 .bottom-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 32px; }
 .learning-thread {

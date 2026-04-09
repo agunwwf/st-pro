@@ -22,6 +22,7 @@ public class LearningCompletionServiceImpl implements LearningCompletionService 
 
     @Autowired
     private LearningCompletionMapper learningCompletionMapper;
+    @Autowired(required = false)
     private org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     @Override
@@ -40,7 +41,9 @@ public class LearningCompletionServiceImpl implements LearningCompletionService 
         row.setModuleId(mid);
         row.setKind(k);
         learningCompletionMapper.upsert(row);
-        eventPublisher.publishEvent(new SkillTreeUpdateEvent(this, userId));
+        if (eventPublisher != null) {
+            eventPublisher.publishEvent(new SkillTreeUpdateEvent(this, userId));
+        }
     }
 
     @Override

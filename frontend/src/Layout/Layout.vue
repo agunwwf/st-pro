@@ -100,7 +100,7 @@
         </div>
       </header>
 
-      <div class="content-scroll">
+      <div class="content-scroll" :class="{ 'no-padding': route.name === 'AiTest' }">
         <router-view v-slot="{ Component }">
           <transition name="fade-slide" mode="out-in">
             <component :is="Component" />
@@ -169,6 +169,10 @@ watch(isCollapse, (newVal) => {
 watch(() => route.path, (newPath) => {
   if (!newPath.startsWith('/projects')) {
     projectsMenuOpen.value = false
+  }
+  // 打开 Project 或 AI练习时自动收缩侧边栏
+  if (newPath.startsWith('/projects') || newPath === '/AiTest') {
+    isCollapse.value = true
   }
 })
 
@@ -545,6 +549,10 @@ onUnmounted(() => {
   padding: 10px;
   /* 隐藏滚动条但保留功能 */
   &::-webkit-scrollbar { width: 0; }
+}
+
+.content-scroll.no-padding {
+  padding: 0;
 }
 
 /* 页面切换动画 */

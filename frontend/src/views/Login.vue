@@ -3,38 +3,38 @@
     <div class="glass-card login-box">
       <div class="logo-area">
         <img src="/favicon.ico" class="app-logo" />
-        <h2>{{ isLogin ? 'Sign in to Apple Admin' : 'Create your Apple ID' }}</h2>
-        <p class="subtitle">{{ isLogin ? 'Welcome back, please login to your account.' : 'Get started with your free account today.' }}</p>
+        <h2>{{ isLogin ? '登录教学平台' : '注册新账号' }}</h2>
+        <p class="subtitle">{{ isLogin ? '欢迎回来，请登录你的账号。' : '创建账号后即可开始学习。' }}</p>
       </div>
 
       <el-form :model="form" class="login-form" @submit.prevent>
         <el-form-item>
-          <el-input v-model="form.username" placeholder="Apple ID" :prefix-icon="User" class="apple-input" />
+          <el-input v-model="form.username" placeholder="请输入账号ID" :prefix-icon="User" class="apple-input" />
         </el-form-item>
         <el-form-item>
-          <el-input v-model="form.password" type="password" placeholder="Password" :prefix-icon="Lock" show-password class="apple-input" />
+          <el-input v-model="form.password" type="password" placeholder="请输入密码" :prefix-icon="Lock" show-password class="apple-input" />
         </el-form-item>
 
-        <el-form-item v-if="isLogin">
+        <el-form-item>
           <el-radio-group v-model="form.role" size="large" class="role-selector">
-            <el-radio label="STUDENT">Student</el-radio>
-            <el-radio label="ADMIN">Admin</el-radio>
+            <el-radio label="STUDENT">学生</el-radio>
+            <el-radio label="ADMIN">管理员</el-radio>
           </el-radio-group>
         </el-form-item>
 
         <el-button type="primary" class="submit-btn" :loading="loading" @click="handleAuth">
-          {{ isLogin ? 'Sign In' : 'Continue' }}
+          {{ isLogin ? '登录' : '注册并继续' }}
         </el-button>
       </el-form>
 
       <div class="footer-links">
-        <span v-if="isLogin">Don't have an Apple ID? <a @click="toggleMode">Create one now.</a></span>
-        <span v-else>Already have an Apple ID? <a @click="toggleMode">Sign in here.</a></span>
+        <span v-if="isLogin">还没有账号？<a @click="toggleMode">立即注册</a></span>
+        <span v-else>已有账号？<a @click="toggleMode">去登录</a></span>
       </div>
     </div>
 
     <div class="copyright">
-      Copyright © 2024 Apple Admin Inc. All rights reserved.
+      版权所有 © 2024 教学平台
     </div>
   </div>
 </template>
@@ -58,7 +58,7 @@ const toggleMode = () => {
 }
 
 const handleAuth = async () => {
-  if (!form.username || !form.password) return ElMessage.warning('Please fill in all fields')
+  if (!form.username || !form.password) return ElMessage.warning('请填写完整账号和密码')
 
   loading.value = true
   try {
@@ -69,21 +69,21 @@ const handleAuth = async () => {
 
     if (res.data.code === 200) {
       if (isLogin.value) {
-        ElMessage.success('Welcome back')
+        ElMessage.success('登录成功，欢迎回来')
         const { token, user } = res.data.data
         localStorage.setItem('token', token)
         localStorage.setItem('user', JSON.stringify(user))
         await router.push('/')
       } else {
-        ElMessage.success('Account created successfully. Please sign in.')
+        ElMessage.success('注册成功，请登录')
         isLogin.value = true
       }
     } else {
-      ElMessage.error(res.data.msg || 'Operation failed')
+      ElMessage.error(res.data.msg || '操作失败')
     }
   } catch (error) {
     console.error(error)
-    ElMessage.error('Network error or server unavailable')
+    ElMessage.error('网络异常或服务器不可用')
   } finally {
     loading.value = false
   }
@@ -117,12 +117,19 @@ const handleAuth = async () => {
 
 .logo-area {
   margin-bottom: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .app-logo {
   width: 50px;
   margin-bottom: 16px;
   opacity: 0.9;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .logo-area h2 {

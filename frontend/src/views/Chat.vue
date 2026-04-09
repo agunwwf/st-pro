@@ -1,10 +1,19 @@
 <template>
   <div class="chat-layout glass-card">
     <!-- 左侧侧边栏 -->
-    <aside class="chat-sidebar">
+    <aside class="chat-sidebar" :class="{ collapsed: sidebarMode === 'collapsed' }">
       <div class="sidebar-header">
-        <h3>消息</h3>
+        <h3 class="title-clickable" @click="toggleMessageMode">{{ sidebarMode === 'friends' ? '我的好友' : '消息' }}</h3>
         <div class="header-actions">
+          <el-button
+            circle
+            size="large"
+            @click="toggleListMode"
+            class="icon-btn"
+            :title="sidebarMode === 'friends' ? '切换为消息对话列表' : '切换为好友列表'"
+          >
+            <el-icon class="list-toggle-icon"><Tickets /></el-icon>
+          </el-button>
           <!-- 好友申请提示 -->
           <el-badge :value="pendingRequests.length" :hidden="pendingRequests.length === 0" class="request-badge">
             <el-button circle size="large" @click="showRequests = true" class="icon-btn">
@@ -14,7 +23,7 @@
         </div>
       </div>
 
-      <div class="search-bar">
+      <div class="search-bar" v-if="sidebarMode !== 'collapsed'">
         <el-input
             v-model="friendKeyword"
             size="large"
@@ -26,23 +35,26 @@
         </el-input>
       </div>
 
-      <div class="friend-list">
+      <div class="friend-list" v-if="sidebarMode !== 'collapsed'">
         <div
-            v-for="f in friends"
+            v-for="f in displayedContacts"
             :key="f.id"
             class="friend-item"
             :class="{ active: activeFriend && activeFriend.id === f.id }"
             @click="selectFriend(f)"
+            @contextmenu.prevent="openFriendContextMenu($event, f)"
         >
           <div class="avatar-wrapper">
-            <el-avatar :size="54" :src="f.friendAvatar || defaultAvatar" shape="square" class="avatar-img" />
+            <el-avatar :size="54" :src="f.friendAvatar || defaultAvatar" shape="square" class="avatar-img" @click.stop="showFriendProfile(f)" />
+            <span v-if="f.friendIsModel === 1 || f.friendIsModel === true" class="model-star-badge">★</span>
             <span class="status-badge online"></span>
           </div>
           <div class="friend-info">
             <div class="name-row">
               <span class="nickname">{{ f.friendNickname || f.friendUsername }}</span>
+              <el-tag v-if="f.tempSession" size="small" type="info" effect="plain">临时会话</el-tag>
             </div>
-            <div class="msg-preview">
+            <div class="msg-preview" v-if="!f.friendNickname">
               <span class="account">ID: {{ f.friendUsername }}</span>
             </div>
           </div>
@@ -60,6 +72,18 @@
               <span class="status-dot-small online"></span> 在线
             </span>
           </div>
+        </div>
+        <div class="chat-header-actions" v-if="activeFriend">
+          <el-dropdown trigger="click">
+            <el-button circle class="icon-btn" title="会话设置">
+              <el-icon><Setting /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item @click="confirmClearMyConversation" class="danger-item">删除所有聊天记录</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
         <div v-else class="contact-info empty">
           <span>选择一个好友开始聊天</span>
@@ -144,14 +168,38 @@
         </div>
       </div>
     </el-dialog>
+
+    <!-- 右键好友菜单 -->
+    <div
+      v-if="contextMenuVisible"
+      class="friend-context-menu"
+      :style="{ left: `${contextMenuPos.x}px`, top: `${contextMenuPos.y}px` }"
+    >
+      <div class="ctx-item danger" @click="deleteFriendFromContext">删除好友</div>
+    </div>
+
+    <!-- 好友信息小浮窗 -->
+    <el-dialog v-model="friendProfileVisible" title="好友信息" width="420px" align-center class="custom-dialog">
+      <div v-if="profileFriend" class="friend-profile-box">
+        <div class="fp-avatar-wrap">
+          <el-avatar :size="72" :src="profileFriend.friendAvatar || defaultAvatar" shape="square" />
+          <span v-if="profileFriend.friendIsModel === 1 || profileFriend.friendIsModel === true" class="model-star-badge big">★</span>
+        </div>
+        <div class="friend-profile-meta">
+          <div class="fp-name">{{ profileFriend.friendNickname || profileFriend.friendUsername }}</div>
+          <div class="fp-id">账号：{{ profileFriend.friendUsername || '-' }}</div>
+          <div class="fp-sign">个人简介：{{ profileFriend.friendSignature || '这个人很神秘，暂未填写简介。' }}</div>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick, reactive } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, reactive, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, ChatDotRound, Bell, Picture, Folder } from '@element-plus/icons-vue'
+import { Search, ChatDotRound, Bell, Picture, Folder, Tickets, Setting } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 window.axios = request
 
@@ -161,10 +209,17 @@ const inputText = ref('')
 const msgArea = ref(null)
 const messages = ref([])
 const friends = ref([])
+const tempContacts = ref([])
 const activeFriend = ref(null)
 const friendKeyword = ref('')
 const pendingRequests = ref([])
 const showRequests = ref(false)
+const sidebarMode = ref('messages')
+const friendProfileVisible = ref(false)
+const profileFriend = ref(null)
+const contextMenuVisible = ref(false)
+const contextMenuPos = ref({ x: 0, y: 0 })
+const contextMenuFriend = ref(null)
 let socket = null
 let socketConnecting = false
 let reconnectTimer = null
@@ -172,6 +227,11 @@ let reconnectAttempt = 0
 
 // 默认头像（如果好友没有头像则使用）
 const defaultAvatar = 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png'
+const allContacts = computed(() => [...tempContacts.value, ...friends.value])
+const displayedContacts = computed(() => {
+  if (sidebarMode.value === 'friends') return friends.value
+  return allContacts.value
+})
 
 // 文件上传 Ref
 const imageInput = ref(null)
@@ -256,9 +316,37 @@ const initData = async () => {
     connectWebSocket()
 
 
-    const targetUsername = route.query.target || localStorage.getItem('chat_active_friend')
+    const targetFromRoute = route.query.target ? String(route.query.target) : ''
+    const targetFromStorage = localStorage.getItem('chat_active_friend') || ''
+    const targetUsername = targetFromRoute || targetFromStorage
     if (targetUsername) {
-      const target = friends.value.find(f => f.friendUsername === targetUsername)
+      // 禁止自己和自己会话
+      if (targetUsername === currentUser.username) {
+        localStorage.removeItem('chat_active_friend')
+        ElMessage.warning('不能和自己聊天')
+        return
+      }
+      let target = friends.value.find(f => f.friendUsername === targetUsername)
+      const allowTempSession =
+        targetFromRoute &&
+        route.query.temp === '1' &&
+        route.query.source === 'teacher-admin' &&
+        currentUser.role === 'ADMIN'
+      if (!target && allowTempSession) {
+        const temp = {
+          id: `temp-${targetUsername}`,
+          friendId: null,
+          friendUsername: targetUsername,
+          friendNickname: route.query.targetNick || targetUsername,
+          friendAvatar: route.query.targetAvatar || defaultAvatar,
+          tempSession: true
+        }
+        tempContacts.value = [temp]
+        target = temp
+      }
+      if (!target && targetFromStorage) {
+        localStorage.removeItem('chat_active_friend')
+      }
       if (target) {
         selectFriend(target)
       }
@@ -268,10 +356,24 @@ const initData = async () => {
   }
 }
 
+const toggleListMode = () => {
+  sidebarMode.value = sidebarMode.value === 'friends' ? 'messages' : 'friends'
+}
+
+const toggleMessageMode = () => {
+  sidebarMode.value = sidebarMode.value === 'messages' ? 'collapsed' : 'messages'
+}
+
 const loadFriends = async () => {
   try {
     const res = await axios.get(`/api/chat/friends?userId=${currentUser.id}`)
-    if (res.data.code === 200) friends.value = res.data.data
+    if (res.data.code === 200) {
+      friends.value = (res.data.data || []).filter(f => f.friendUsername)
+      if (activeFriend.value && !friends.value.some(f => f.friendId === activeFriend.value.friendId)) {
+        activeFriend.value = null
+        messages.value = []
+      }
+    }
   } catch (e) {
     console.error('加载好友失败', e)
   }
@@ -343,6 +445,12 @@ const acceptFriend = async (req) => {
 }
 
 const selectFriend = async (f) => {
+  contextMenuVisible.value = false
+  if (!f?.friendUsername) return
+  if (f.friendUsername === currentUser.username) {
+    ElMessage.warning('不能和自己聊天')
+    return
+  }
   activeFriend.value = f
   localStorage.setItem('chat_active_friend', f.friendUsername)
   try {
@@ -356,6 +464,32 @@ const selectFriend = async (f) => {
   }
 }
 
+const confirmClearMyConversation = async () => {
+  if (!activeFriend.value?.friendUsername) return
+  try {
+    await ElMessageBox.confirm(
+      `确定删除你与 ${activeFriend.value.friendNickname || activeFriend.value.friendUsername} 的所有聊天记录吗？`,
+      '删除聊天记录确认',
+      { type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消' }
+    )
+  } catch (_) {
+    return
+  }
+  try {
+    const res = await axios.post('/api/chat/messages/clear', {
+      peerUsername: activeFriend.value.friendUsername
+    })
+    if (res.data.code === 200) {
+      messages.value = []
+      ElMessage.success('已删除你自己的聊天记录')
+    } else {
+      ElMessage.error(res.data.msg || '删除失败')
+    }
+  } catch (e) {
+    ElMessage.error('删除失败')
+  }
+}
+
 // --- 消息发送逻辑 ---
 
 const send = async () => {
@@ -366,6 +500,10 @@ const send = async () => {
 
 const sendMessage = async (type, content, fileName = null) => {
   if (!activeFriend.value) return
+  if (activeFriend.value.friendUsername === currentUser.username) {
+    ElMessage.warning('不能给自己发消息')
+    return
+  }
   // 先落库，保证刷新不丢（WS 只负责实时转发）
   try {
     const saveRes = await axios.post('/api/chat/message/save', {
@@ -419,6 +557,59 @@ const sendMessage = async (type, content, fileName = null) => {
 
 const handleEnter = (e) => {
   if (!e.shiftKey) send()
+}
+
+const showFriendProfile = (f) => {
+  profileFriend.value = f
+  friendProfileVisible.value = true
+}
+
+const openFriendContextMenu = (e, f) => {
+  if (f?.tempSession) {
+    contextMenuVisible.value = false
+    return
+  }
+  contextMenuFriend.value = f
+  contextMenuPos.value = { x: e.clientX, y: e.clientY }
+  contextMenuVisible.value = true
+}
+
+const deleteFriend = async (f) => {
+  if (!f) return
+  await ElMessageBox.confirm(
+    `确定删除好友 ${f.friendNickname || f.friendUsername} 吗？删除后聊天记录将不再显示。`,
+    '删除好友确认',
+    { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
+  )
+  const res = await axios.post('/api/chat/friend/delete', {
+    userId: currentUser.id,
+    friendId: f.friendId
+  })
+  if (res.data.code === 200) {
+    ElMessage.success('好友已删除')
+    if (activeFriend.value?.friendId === f.friendId) {
+      activeFriend.value = null
+      messages.value = []
+    }
+    await loadFriends()
+  } else {
+    ElMessage.error(res.data.msg || '删除失败')
+  }
+}
+
+const deleteFriendFromContext = async () => {
+  const f = contextMenuFriend.value
+  contextMenuVisible.value = false
+  if (!f) return
+  try {
+    await deleteFriend(f)
+  } catch (_) {
+    // 用户取消无需提示
+  }
+}
+
+const handleGlobalClick = () => {
+  if (contextMenuVisible.value) contextMenuVisible.value = false
 }
 
 // --- 图片/文件处理 (保留原有逻辑) ---
@@ -500,11 +691,13 @@ const resolveUploadUrl = (content) => {
 
 onMounted(() => {
   initData()
+  window.addEventListener('click', handleGlobalClick)
 })
 
 onUnmounted(() => {
   if (socket) socket.close()
   if (reconnectTimer) window.clearTimeout(reconnectTimer)
+  window.removeEventListener('click', handleGlobalClick)
 })
 </script>
 
@@ -527,6 +720,10 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
 }
+.chat-sidebar.collapsed { width: 92px; }
+.chat-sidebar.collapsed .sidebar-header { justify-content: center; padding: 20px 10px; }
+.chat-sidebar.collapsed .sidebar-header h3 { display: none; }
+.chat-sidebar.collapsed .header-actions { display: flex; gap: 8px; }
 
 .sidebar-header {
   padding: 24px 20px;
@@ -540,6 +737,20 @@ onUnmounted(() => {
   font-size: 24px; /* 标题放大 */
   font-weight: 700;
   color: #1d1d1f;
+}
+.title-clickable { cursor: pointer; user-select: none; }
+.chat-header-actions { margin-left: auto; }
+.danger-item { color: #f56c6c; }
+.list-toggle-icon {
+  font-size: 20px;
+  font-weight: 700;
+}
+.icon-btn :deep(.el-icon) {
+  font-size: 21px; /* 图标整体略放大 */
+  transform: scale(1.08);
+}
+.icon-btn :deep(svg) {
+  stroke-width: 2.4; /* 线条更粗一点 */
 }
 
 .search-bar { padding: 0 20px 20px; }
@@ -561,8 +772,43 @@ onUnmounted(() => {
 
 .avatar-wrapper { position: relative; margin-right: 16px; }
 .avatar-img { border: 1px solid rgba(0,0,0,0.05); }
+.model-star-badge {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffb020;
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.16);
+}
+.model-star-badge.big {
+  width: 20px;
+  height: 20px;
+  line-height: 20px;
+  font-size: 12px;
+  right: -5px;
+  bottom: -5px;
+}
 
 .friend-info { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.name-row { display: flex; align-items: center; gap: 8px; }
+.name-row .el-tag {
+  margin-left: auto;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.name-row .nickname {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .nickname { font-weight: 600; font-size: 18px; color: #1d1d1f; } /* 昵称放大 */
 .account { font-size: 14px; color: #86868b; }
 
@@ -693,4 +939,42 @@ onUnmounted(() => {
 .check-in-text { font-weight: 600; color: #0071e3; }
 .date-text { color: #86868b; font-size: 14px; }
 .action-btns { display: flex; gap: 8px; }
+
+.friend-context-menu {
+  position: fixed;
+  z-index: 3000;
+  min-width: 130px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.ctx-item {
+  padding: 10px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  color: #374151;
+}
+
+.ctx-item:hover { background: #f3f4f6; }
+.ctx-item.danger { color: #dc2626; }
+
+.friend-profile-box {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.fp-avatar-wrap { position: relative; }
+
+.friend-profile-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fp-name { font-size: 18px; font-weight: 700; color: #111827; }
+.fp-id { font-size: 13px; color: #6b7280; }
+.fp-sign { font-size: 14px; color: #374151; line-height: 1.6; }
 </style>

@@ -12,7 +12,9 @@ public interface TeacherAdminMapper {
 
     @Select("SELECT id, username, nickname, avatar, role, " +
             "IFNULL(ROUND((SELECT COUNT(*) FROM sys_learning_completion WHERE user_id = sys_user.id) / 10.0 * 100), 0) AS progress, " +
-            "check_in_count as checkInCount, is_model as isModel, create_time as createTime " +
+            "IFNULL((SELECT COUNT(*) FROM sys_check_in c " +
+            "WHERE c.user_id = sys_user.id AND YEAR(c.check_date) = YEAR(CURDATE())), 0) as checkInCount, " +
+            "is_model as isModel, create_time as createTime " +
             "FROM sys_user WHERE teacher_id = #{teacherId} AND role = 'STUDENT'")
     List<Map<String, Object>> listMyStudents(Long teacherId);
 
@@ -118,8 +120,20 @@ public interface TeacherAdminMapper {
     int countStudentsInClass(@Param("teacherId") Long teacherId);
 
     @Select("SELECT r.student_id AS studentId, u.username, u.nickname, r.status, r.score, " +
+            "COALESCE(u.avatar, 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png') AS avatar, " +
             "CAST(r.student_answers AS CHAR CHARACTER SET utf8mb4) AS answersJson, r.submit_time AS submitTime " +
             "FROM sys_student_record r JOIN sys_user u ON u.id = r.student_id " +
             "WHERE r.assignment_id = #{assignmentId}")
     List<Map<String, Object>> listRecordsForAssignment(@Param("assignmentId") Long assignmentId);
+
+    @Select("SELECT r.student_id AS studentId, u.username, u.nickname, " +
+            "COALESCE(u.avatar, 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png') AS avatar, " +
+            "r.status, r.score, CAST(r.student_answers AS CHAR CHARACTER SET utf8mb4) AS answersJson, " +
+            "r.submit_time AS submitTime " +
+            "FROM sys_student_record r JOIN sys_user u ON u.id = r.student_id " +
+            "WHERE r.assignment_id = #{assignmentId} AND r.student_id = #{studentId}")
+    Map<String, Object> getSubmissionRecord(@Param("assignmentId") Long assignmentId, @Param("studentId") Long studentId);
+
+    @Update("UPDATE sys_student_record SET score = #{score}, status = 2 WHERE assignment_id = #{assignmentId} AND student_id = #{studentId}")
+    int updateSubmissionScore(@Param("assignmentId") Long assignmentId, @Param("studentId") Long studentId, @Param("score") Integer score);
 }

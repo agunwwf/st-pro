@@ -100,7 +100,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { Timer, Warning, ArrowLeft } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
@@ -115,6 +115,8 @@ const questions = ref([])
 const answers = ref({})
 const timeLeft = ref(0)
 let timer = null
+const isSubmitting = ref(false)
+const skipLeaveGuard = ref(false)
 
 // --- 工具函数：获取当前登录学生的 ID ---
 const getStudentId = () => {
@@ -158,24 +160,7 @@ onMounted(async () => {
 
 // --- 退出与返回主页逻辑 ---
 const handleBackHome = () => {
-  if (answeredCount.value > 0) {
-    ElMessageBox.confirm(
-        '考试正在进行中，现在离开将不会保存当前进度，确定要退出吗？',
-        '退出确认',
-        {
-          confirmButtonText: '确定退出',
-          cancelButtonText: '继续考试',
-          type: 'warning',
-          confirmButtonClass: 'el-button--danger',
-          roundButton: true
-        }
-    ).then(() => {
-      router.push('/dashboard')
-    }).catch(() => {})
-  } else {
-    // 还没动笔，直接回去
-    router.push('/dashboard')
-  }
+  requestLeaveAndAutoSubmit('/dashboard')
 }
 
 // --- 倒计时与防作弊 ---
@@ -197,6 +182,47 @@ const handleBlur = () => {
 onUnmounted(() => {
   clearInterval(timer)
   window.removeEventListener('blur', handleBlur)
+})
+
+const requestLeaveAndAutoSubmit = (targetPath) => {
+  if (skipLeaveGuard.value || isSubmitting.value) return
+  ElMessageBox.confirm(
+      '考试进行中不可中途退出。若离开当前考试页面，系统将自动交卷。是否继续离开？',
+      '离开将自动交卷',
+      {
+        confirmButtonText: '确认离开并交卷',
+        cancelButtonText: '继续考试',
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger',
+        roundButton: true
+      }
+  ).then(async () => {
+    await forceSubmit('您已中途离开，系统已自动交卷。', targetPath || '/dashboard')
+  }).catch(() => {})
+}
+
+onBeforeRouteLeave((to, from, next) => {
+  if (skipLeaveGuard.value || isSubmitting.value) {
+    next()
+    return
+  }
+  ElMessageBox.confirm(
+      '考试进行中不可中途退出。若离开当前考试页面，系统将自动交卷。是否继续离开？',
+      '离开将自动交卷',
+      {
+        confirmButtonText: '确认离开并交卷',
+        cancelButtonText: '继续考试',
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger',
+        roundButton: true
+      }
+  ).then(async () => {
+    // 阻止本次路由跳转，交卷成功后再手动跳转到目标路由
+    next(false)
+    await forceSubmit('您已中途离开，系统已自动交卷。', to.fullPath || '/dashboard')
+  }).catch(() => {
+    next(false)
+  })
 })
 
 // --- 基础数据处理工具 ---
@@ -242,7 +268,9 @@ const confirmSubmit = () => {
 }
 
 
-const forceSubmit = async (msg) => {
+const forceSubmit = async (msg, redirectTo = '/my-exams') => {
+  if (isSubmitting.value) return
+  isSubmitting.value = true
   loading.value = true
   const assignmentId = route.params.id
 
@@ -255,8 +283,9 @@ const forceSubmit = async (msg) => {
     if (res.data.code === 200) {
       ElMessage.success(msg)
       clearInterval(timer) // 停止倒计时
+      skipLeaveGuard.value = true
       setTimeout(() => {
-        router.push('/my-exams') // 交卷后回到学生的测验大厅
+        router.push(redirectTo)
       }, 1500)
     } else {
       ElMessage.error(res.data.msg || '交卷遇到未知错误')
@@ -266,6 +295,9 @@ const forceSubmit = async (msg) => {
     console.error(e)
   } finally {
     loading.value = false
+    if (!skipLeaveGuard.value) {
+      isSubmitting.value = false
+    }
   }
 }
 </script>

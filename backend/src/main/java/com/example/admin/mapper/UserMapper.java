@@ -62,6 +62,22 @@ public interface UserMapper {
     @Update("UPDATE sys_user SET nickname=#{nickname}, avatar=#{avatar}, signature=#{signature}, gender=#{gender}, birthday=#{birthday}, region=#{region}, progress=#{progress}, check_in_count=#{checkInCount}, is_model=#{isModel} WHERE id=#{id}")
     int updateById(User user);
 
+    @Update("UPDATE sys_user SET username = #{username} WHERE id = #{id}")
+    int updateUsernameById(@Param("id") Long id, @Param("username") String username);
+
+    @Update("UPDATE sys_user SET password = #{password} WHERE id = #{id}")
+    int updatePasswordById(@Param("id") Long id, @Param("password") String password);
+
+    @Select("SELECT COUNT(1) FROM sys_user WHERE username = #{username} AND id <> #{id}")
+    int countUsernameExistsExcludeId(@Param("id") Long id, @Param("username") String username);
+
+    @Select("SELECT COALESCE(change_count, 0) FROM sys_user_username_change_log WHERE user_id = #{userId} AND `year_month` = #{yearMonth}")
+    Integer getUsernameChangeCount(@Param("userId") Long userId, @Param("yearMonth") String yearMonth);
+
+    @Insert("INSERT INTO sys_user_username_change_log(user_id, `year_month`, change_count) VALUES(#{userId}, #{yearMonth}, 1) " +
+            "ON DUPLICATE KEY UPDATE change_count = change_count + 1")
+    int increaseUsernameChangeCount(@Param("userId") Long userId, @Param("yearMonth") String yearMonth);
+
     @Insert("INSERT INTO sys_user(username, password, nickname, avatar, signature, role, create_time) " +
             "VALUES(#{username}, #{password}, #{nickname}, #{avatar}, #{signature}, #{role}, NOW())")
     @org.apache.ibatis.annotations.Options(useGeneratedKeys = true, keyProperty = "id")

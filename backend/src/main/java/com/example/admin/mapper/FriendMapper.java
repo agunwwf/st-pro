@@ -30,18 +30,20 @@ public interface FriendMapper {
             "  MIN(f.create_time) AS createTime, " +
             "  u.username AS friendUsername, " +
             "  u.nickname AS friendNickname, " +
-            "  u.avatar AS friendAvatar " +
+            "  u.avatar AS friendAvatar, " +
+            "  u.signature AS friendSignature, " +
+            "  u.is_model AS friendIsModel " +
             "FROM sys_friend f " +
-            "LEFT JOIN sys_user u ON u.id = CASE WHEN f.user_id = #{userId} THEN f.friend_id ELSE f.user_id END " +
+            "JOIN sys_user u ON u.id = CASE WHEN f.user_id = #{userId} THEN f.friend_id ELSE f.user_id END " +
             "WHERE (f.user_id = #{userId} OR f.friend_id = #{userId}) AND f.status = 1 " +
-            "GROUP BY friendId, u.username, u.nickname, u.avatar")
+            "GROUP BY friendId, u.username, u.nickname, u.avatar, u.signature, u.is_model")
     List<Friend> getMyFriends(Long userId);
 
     // 查询收到的好友申请 (status=0)
     @Select("SELECT f.id, f.user_id as userId, f.friend_id as friendId, f.status, f.create_time as createTime, " +
-            "u.username as friendUsername, u.nickname as friendNickname, u.avatar as friendAvatar " +
+            "u.username as friendUsername, u.nickname as friendNickname, u.avatar as friendAvatar, u.signature as friendSignature, u.is_model as friendIsModel " +
             "FROM sys_friend f " +
-            "LEFT JOIN sys_user u ON f.user_id = u.id " +
+            "JOIN sys_user u ON f.user_id = u.id " +
             "WHERE f.friend_id = #{userId} AND f.status = 0")
     List<Friend> getFriendRequests(Long userId);
 

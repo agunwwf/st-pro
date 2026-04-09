@@ -44,7 +44,10 @@
                   <div class="student-cell">
                     <el-avatar :size="44" :src="scope.row.avatar || 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png'" shape="square" />
                     <div class="student-meta">
-                      <span class="student-name">{{ scope.row.nickname || scope.row.username }}</span>
+                      <span class="student-name">
+                        {{ scope.row.nickname || scope.row.username }}
+                        <el-tag v-if="scope.row.isModel === 1 || scope.row.isModel === true" size="small" type="warning" effect="dark" style="margin-left: 6px;">模范</el-tag>
+                      </span>
                       <span class="student-id">ID: {{ scope.row.username }}</span>
                     </div>
                   </div>
@@ -55,11 +58,20 @@
                   <el-progress :percentage="scope.row.progress || 0" :color="getProgressColor(scope.row.progress)" />
                 </template>
               </el-table-column>
-              <el-table-column prop="checkInCount" label="打卡天数" align="center" width="120" />
-              <el-table-column label="操作" width="120" fixed="right">
+              <el-table-column prop="checkInCount" label="年度打卡天数" align="center" width="140" />
+              <el-table-column label="操作" width="170" fixed="right" align="right">
                 <template #default="scope">
-                  <el-button circle type="primary" :icon="ChatDotRound" @click="messageStudent(scope.row)" />
-                  <el-button circle type="danger" :icon="Delete" plain @click="confirmDelete(scope.row)" />
+                  <div class="row-actions">
+                    <el-button
+                      circle
+                      :type="scope.row.isModel ? 'warning' : 'info'"
+                      :icon="StarFilled"
+                      @click="toggleModel(scope.row)"
+                      :title="scope.row.isModel ? '取消模范学生' : '设为模范学生'"
+                    />
+                    <el-button circle type="primary" :icon="ChatDotRound" @click="messageStudent(scope.row)" />
+                    <el-button circle type="danger" :icon="Delete" plain @click="confirmDelete(scope.row)" />
+                  </div>
                 </template>
               </el-table-column>
                 </el-table>
@@ -102,7 +114,7 @@
 
           <div class="glass-panel main-tabs">
             <el-tabs v-model="activeExamTab" class="apple-tabs">
-              <el-tab-pane label="📚 试卷模板库" name="papers">
+              <el-tab-pane label="试卷模板库" name="papers">
                 <div class="grid-container">
                   <div class="exam-card exam-card-interactive" v-for="paper in papers" :key="paper.id" @click="openPaperDetail(paper)">
                     <div class="card-badge">{{ paper.category }}</div>
@@ -125,7 +137,7 @@
                 </div>
               </el-tab-pane>
 
-              <el-tab-pane label="🚀 考试任务" name="assignments">
+              <el-tab-pane label="考试任务" name="assignments">
                 <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
                   <el-button type="primary" :icon="Promotion" @click="openPublishExam(null)">发布新考试</el-button>
                 </div>
@@ -363,13 +375,15 @@
 <script setup>
 import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Monitor, DocumentCopy, Plus, Promotion, Search, Timer, Back, User, ChatDotRound, Delete } from '@element-plus/icons-vue'
+import { Monitor, DocumentCopy, Plus, Promotion, Search, Timer, Back, User, ChatDotRound, Delete, StarFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import request from '@/utils/request'
+import { useRoute } from 'vue-router'
 window.axios = request
 
 const router = useRouter()
+const route = useRoute()
 const currentView = ref('exams') // 默认进入测验页面
 
 // --- 基础工具函数 ---
@@ -403,13 +417,46 @@ const loadStudents = async () => {
     if (res.data.code === 200) students.value = res.data.data
   } catch (e) {} finally { loadingStudents.value = false }
 }
-const messageStudent = (student) => router.push({ path: '/chat', query: { target: student.username } })
+const messageStudent = (student) => router.push({
+  path: '/chat',
+  query: {
+    target: student.username,
+    targetNick: student.nickname || student.username,
+    targetAvatar: student.avatar || '',
+    temp: '1',
+    source: 'teacher-admin'
+  }
+})
 const confirmDelete = (student) => {
   ElMessageBox.confirm(`确定踢出 ${student.nickname || student.username} 吗？踢出后该学生将无法再次申请加入你班级（除非你手动添加）。`, '警告', { type: 'warning' }).then(async () => {
     const res = await axios.post(`/api/teacher/class/students/${student.id}/kick`, { reason: 'kick' })
     if (res.data.code === 200) { ElMessage.success('已踢出并拉黑'); loadStudents() }
     else ElMessage.error(res.data.msg || '操作失败')
   }).catch(() => {})
+}
+
+const toggleModel = async (student) => {
+  const next = !(student?.isModel === 1 || student?.isModel === true)
+  const actionText = next ? '设为模范学生' : '取消模范学生'
+  try {
+    await ElMessageBox.confirm(
+      `确定要将 ${student.nickname || student.username} ${actionText}吗？`,
+      '确认操作',
+      { type: 'warning', confirmButtonText: '确定', cancelButtonText: '取消' }
+    )
+    const res = await axios.post('/api/user/student/model', {
+      id: student.id,
+      isModel: next
+    })
+    if (res.data.code === 200) {
+      ElMessage.success(`${actionText}成功`)
+      await loadStudents()
+    } else {
+      ElMessage.error(res.data.msg || `${actionText}失败`)
+    }
+  } catch (_) {
+    // 用户取消
+  }
 }
 
 const loadRequests = async () => {
@@ -538,7 +585,12 @@ const loadExamsData = async () => {
   } catch (error) { console.warn("LMS数据拉取失败") }
 }
 
-onMounted(() => { loadStudents(); loadRequests(); loadExamsData() })
+onMounted(() => {
+  if (route.query.view === 'students') currentView.value = 'students'
+  loadStudents()
+  loadRequests()
+  loadExamsData()
+})
 
 // 打开全屏组卷
 const openAssembleWorkshop = () => {
@@ -712,6 +764,12 @@ const handlePublishExam = async () => {
 .student-meta { display: flex; flex-direction: column; }
 .student-name { font-weight: 600; color: #1d1d1f; font-size: 15px; }
 .student-id { font-size: 12px; color: #86868b; }
+.row-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
 .action-banner { display: flex; justify-content: space-between; align-items: center; background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(230,242,255,0.8)); }
 .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px; margin-top: 16px; }
 .exam-card { background: #fff; border-radius: 16px; padding: 24px; border: 1px solid #e5e5ea; position: relative; }
