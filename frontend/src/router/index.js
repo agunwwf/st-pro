@@ -61,6 +61,18 @@ const routes = [
     meta: { title: '写文章 - Forum', requiresAuth: true }
   },
   {
+    path: '/forum/post/:id',
+    name: 'ForumPostDetail',
+    component: () => import('../forum/ForumPostDetail.vue'),
+    meta: { title: '帖子详情 - Forum' }
+  },
+  {
+    path: '/forum/my',
+    name: 'ForumMyRecords',
+    component: () => import('../forum/ForumMyRecords.vue'),
+    meta: { title: '我的论坛记录', requiresAuth: true }
+  },
+  {
     path: '/',
     component: Layout,
     redirect: '/dashboard',

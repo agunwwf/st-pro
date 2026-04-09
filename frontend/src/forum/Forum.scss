@@ -222,17 +222,27 @@
 
   /* 机器学习卡片 - 可爱且高级风格 */
   &.machine-learning-card {
-    background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
     border: 1px solid rgba(0, 0, 0, 0.03);
     padding: 24px;
     display: block; // 取消 flex 居中，使用标准流布局
     text-align: left;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
 
-    &:hover {
-      background: linear-gradient(135deg, #ffffff 0%, #f5f7f8 100%);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
-      border-color: rgba(0, 0, 0, 0.08);
+    &:not(.has-cover) {
+      background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+      &:hover {
+        background: linear-gradient(135deg, #ffffff 0%, #f5f7f8 100%);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+        border-color: rgba(0, 0, 0, 0.08);
+      }
+    }
+
+    &.has-cover {
+      border-color: rgba(0, 0, 0, 0.06);
+      &:hover {
+        box-shadow: 0 22px 48px rgba(0, 0, 0, 0.14);
+        border-color: rgba(0, 0, 0, 0.1);
+      }
     }
 
     .card-inner {
@@ -372,9 +382,19 @@
       }
     }
 
-    &.machine-learning-card {
+    &.machine-learning-card:not(.has-cover) {
       background: linear-gradient(135deg, #1c1c1e 0%, #2c2c2e 100%);
+    }
 
+    &.machine-learning-card.has-cover {
+      border-color: rgba(255, 255, 255, 0.1);
+      &:hover {
+        box-shadow: 0 22px 52px rgba(0, 0, 0, 0.5);
+        border-color: rgba(255, 255, 255, 0.14);
+      }
+    }
+
+    &.machine-learning-card {
       .topic-tag {
         background-color: rgba(79, 70, 229, 0.2);
         border-color: rgba(199, 210, 254, 0.2);
@@ -452,4 +472,41 @@
       font-size: 16px;
     }
   }
+}
+
+/* 问答 / 求助 / 笔记 分区标签色 */
+.forum-section.section-b .machine-learning-card .topic-tag {
+  background-color: #fff7ed !important;
+  border-color: #fed7aa !important;
+  color: #c2410c !important;
+}
+
+.forum-section.section-c .machine-learning-card .topic-tag {
+  background-color: #fef2f2 !important;
+  border-color: #fecaca !important;
+  color: #b91c1c !important;
+}
+
+.forum-section.section-d .machine-learning-card .topic-tag {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+  color: #047857 !important;
+}
+
+.dark .forum-section.section-b .machine-learning-card .topic-tag {
+  background-color: rgba(234, 88, 12, 0.22) !important;
+  border-color: rgba(251, 146, 60, 0.4) !important;
+  color: #fdba74 !important;
+}
+
+.dark .forum-section.section-c .machine-learning-card .topic-tag {
+  background-color: rgba(239, 68, 68, 0.2) !important;
+  border-color: rgba(248, 113, 113, 0.35) !important;
+  color: #fca5a5 !important;
+}
+
+.dark .forum-section.section-d .machine-learning-card .topic-tag {
+  background-color: rgba(16, 185, 129, 0.2) !important;
+  border-color: rgba(52, 211, 153, 0.35) !important;
+  color: #6ee7b7 !important;
 }

@@ -101,6 +101,29 @@ CREATE TABLE IF NOT EXISTS `sys_forum_action` (
                                                   UNIQUE KEY `uk_user_post_action` (`user_id`, `post_id`, `action_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 论坛帖子浏览记录（登录用户打开详情页时写入/更新最后浏览时间）
+CREATE TABLE IF NOT EXISTS `sys_forum_post_view` (
+    `id` bigint NOT NULL AUTO_INCREMENT,
+    `user_id` bigint NOT NULL,
+    `post_id` bigint NOT NULL,
+    `last_view_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_user_post_view` (`user_id`, `post_id`),
+    KEY `idx_user_last_view` (`user_id`, `last_view_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户浏览帖子记录';
+
+-- 论坛帖子评论
+CREATE TABLE IF NOT EXISTS `sys_forum_comment` (
+    `id` bigint NOT NULL AUTO_INCREMENT,
+    `post_id` bigint NOT NULL,
+    `user_id` bigint NOT NULL,
+    `content` varchar(2000) NOT NULL,
+    `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_forum_comment_post` (`post_id`),
+    KEY `idx_forum_comment_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='论坛评论';
+
 -- ---------------------------------------------------------------------------
 -- 学习完成记录表：谁在什么时间标记完成了哪个项目的哪种学习。
 -- · user_id：关联 sys_user，一次登录一个用户。

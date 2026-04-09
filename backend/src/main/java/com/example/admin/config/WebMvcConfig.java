@@ -7,6 +7,8 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -25,11 +27,19 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // 将 /uploads/** 映射到 uploads 绝对路径，避免运行目录差异导致 404
-        Path uploadDir = Paths.get(System.getProperty("user.dir"), "uploads").toAbsolutePath();
-        String location = uploadDir.toUri().toString();
-        registry.addResourceHandler("/uploads/**")
-                .addResourceLocations(location);
+        Path uploadDir = Paths.get(System.getProperty("user.dir"), "uploads").toAbsolutePath().normalize();
+        try {
+            if (!Files.exists(uploadDir)) {
+                Files.createDirectories(uploadDir);
+            }
+        } catch (IOException ignored) {
+            // 目录创建失败时仍注册路径，上传接口会再次尝试创建
+        }
+        String loc = uploadDir.toUri().toString();
+        if (!loc.endsWith("/")) {
+            loc += "/";
+        }
+        registry.addResourceHandler("/uploads/**").addResourceLocations(loc);
     }
 
     @Override
