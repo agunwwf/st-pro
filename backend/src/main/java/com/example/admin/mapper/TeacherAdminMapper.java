@@ -71,6 +71,11 @@ public interface TeacherAdminMapper {
     @Insert("INSERT INTO sys_paper_question(paper_id, question_id, score) VALUES(#{paperId}, #{questionId}, 10)")
     void insertPaperQuestion(@Param("paperId") Long paperId, @Param("questionId") Long questionId);
 
+    @Insert("INSERT INTO sys_question(teacher_id, category, type, content, options, standard_answer) " +
+            "VALUES(#{teacherId}, #{category}, #{type}, #{content}, CAST(#{optionsJson} AS JSON), #{standardAnswer})")
+    @Options(useGeneratedKeys = true, keyProperty = "id")
+    void insertTeacherQuestion(Map<String, Object> row);
+
     @Select("SELECT p.id, p.title, p.category, p.total_score as totalScore, p.create_time as createTime, " +
             "(SELECT COUNT(*) FROM sys_paper_question pq WHERE pq.paper_id = p.id) as questionCount " +
             "FROM sys_paper p WHERE p.teacher_id = #{teacherId} ORDER BY p.create_time DESC")
@@ -89,6 +94,9 @@ public interface TeacherAdminMapper {
             "(SELECT COUNT(*) FROM sys_paper_question pq WHERE pq.paper_id = p.id) AS questionCount " +
             "FROM sys_paper p WHERE p.id = #{paperId} AND p.teacher_id = #{teacherId}")
     Map<String, Object> getPaperForTeacher(@Param("paperId") Long paperId, @Param("teacherId") Long teacherId);
+
+    @Update("UPDATE sys_paper SET title = #{title} WHERE id = #{paperId} AND teacher_id = #{teacherId}")
+    int renamePaper(@Param("paperId") Long paperId, @Param("teacherId") Long teacherId, @Param("title") String title);
 
     @Select("SELECT q.id, q.type, q.category, q.content, CAST(q.options AS CHAR CHARACTER SET utf8mb4) AS options, " +
             "q.standard_answer AS standardAnswer, pq.score " +
@@ -136,4 +144,43 @@ public interface TeacherAdminMapper {
 
     @Update("UPDATE sys_student_record SET score = #{score}, status = 2 WHERE assignment_id = #{assignmentId} AND student_id = #{studentId}")
     int updateSubmissionScore(@Param("assignmentId") Long assignmentId, @Param("studentId") Long studentId, @Param("score") Integer score);
+
+    @Update("UPDATE sys_question SET content = #{content}, options = CAST(#{optionsJson} AS JSON), standard_answer = #{standardAnswer}, type = #{type} " +
+            "WHERE id = #{id}")
+    int updateQuestionEditableFields(
+            @Param("id") Long id,
+            @Param("type") String type,
+            @Param("content") String content,
+            @Param("optionsJson") String optionsJson,
+            @Param("standardAnswer") String standardAnswer
+    );
+
+    @Select("SELECT category FROM sys_paper WHERE id = #{paperId}")
+    String getPaperCategory(@Param("paperId") Long paperId);
+
+    /** 题库检索：按模块+题型随机抽题，排除指定题目 */
+    @Select({
+            "<script>",
+            "SELECT id, category, type, content,",
+            "CAST(options AS CHAR CHARACTER SET utf8mb4) AS options,",
+            "standard_answer AS standardAnswer",
+            "FROM sys_question",
+            "WHERE category = #{category}",
+            "AND type = #{type}",
+            "<if test='excludeIds != null and excludeIds.size() > 0'>",
+            "AND id NOT IN",
+            "<foreach collection='excludeIds' item='x' open='(' separator=',' close=')'>",
+            "#{x}",
+            "</foreach>",
+            "</if>",
+            "ORDER BY RAND()",
+            "LIMIT #{limit}",
+            "</script>"
+    })
+    List<Map<String, Object>> pickQuestionsForAiPaper(
+            @Param("category") String category,
+            @Param("type") String type,
+            @Param("excludeIds") List<Long> excludeIds,
+            @Param("limit") int limit
+    );
 }

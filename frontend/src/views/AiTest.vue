@@ -4,6 +4,11 @@ import { Sun, Moon, MessageSquare, LayoutDashboard } from 'lucide-vue-next';
 import AIChatTutor from '../components/AIChatTutor.vue';
 import AIQuizSystem from '../components/AIQuizSystem.vue';
 
+const currentUser = (() => {
+  try { return JSON.parse(localStorage.getItem('user') || '{}') } catch (_) { return {} }
+})()
+const isTeacher = String(currentUser?.role || '').toUpperCase() === 'ADMIN'
+
 const activeTab = ref('tutor');
 const isDarkMode = ref(false);
 
@@ -18,6 +23,7 @@ const toggleTheme = () => {
 };
 
 const switchToQuiz = () => {
+  if (isTeacher) return
   activeTab.value = 'quiz';
 };
 </script>
@@ -35,9 +41,9 @@ const switchToQuiz = () => {
 
         <div class="segmented-control">
           <button @click="activeTab = 'tutor'" :class="{ active: activeTab === 'tutor' }">
-            <MessageSquare :size="14" /> 导师交流
+            <MessageSquare :size="14" /> {{ isTeacher ? '自动组卷' : '导师交流' }}
           </button>
-          <button @click="activeTab = 'quiz'" :class="{ active: activeTab === 'quiz' }">
+          <button v-if="!isTeacher" @click="activeTab = 'quiz'" :class="{ active: activeTab === 'quiz' }">
             <LayoutDashboard :size="14" /> 强化练习
           </button>
         </div>
@@ -48,7 +54,7 @@ const switchToQuiz = () => {
       <Transition name="fade-slide" mode="out-in">
         <div class="tab-panel" :key="activeTab">
           <AIChatTutor v-if="activeTab === 'tutor'" @startQuiz="switchToQuiz" />
-          <AIQuizSystem v-else />
+          <AIQuizSystem v-else-if="!isTeacher" />
         </div>
       </Transition>
     </main>

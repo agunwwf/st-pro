@@ -7,7 +7,7 @@ spring:
       database: ${REDIS_DB:0}
   ai:
     openai:
-      api-key: ${DEEPSEEK_API_KEY:sk-9a7440e6433049ceb91abe9ed108def6}
+      api-key: ${DEEPSEEK_API_KEY:sk-d29ef99b94bc436f848aa4fadf2cbd17}
       base-url: https://api.deepseek.com
       chat:
         options:

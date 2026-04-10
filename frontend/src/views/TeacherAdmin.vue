@@ -218,16 +218,21 @@
 
           <main class="ws-question-pool">
             <div class="pool-header">
-              <div style="display:flex; align-items:center; justify-content: space-between; gap: 16px;">
+              <div style="display:flex; align-items:center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
                 <span>正在显示：{{ currentQuestionType === 'ALL' ? '全部题目' : currentQuestionType }}（共 {{ questionTotal }} 题）</span>
-                <el-input
-                  v-model="questionKeyword"
-                  placeholder="搜索题干关键词..."
-                  clearable
-                  style="max-width: 320px"
-                  @clear="() => { questionPage = 1; loadQuestionPage() }"
-                  @keyup.enter="() => { questionPage = 1; loadQuestionPage() }"
-                />
+                <div style="display:flex; align-items:center; gap: 12px; flex-wrap: wrap;">
+                  <el-button type="success" plain :icon="Plus" @click.stop="openManualQuestionDialog">
+                    添加自拟题
+                  </el-button>
+                  <el-input
+                    v-model="questionKeyword"
+                    placeholder="搜索题干关键词..."
+                    clearable
+                    style="max-width: 320px"
+                    @clear="() => { questionPage = 1; loadQuestionPage() }"
+                    @keyup.enter="() => { questionPage = 1; loadQuestionPage() }"
+                  />
+                </div>
               </div>
             </div>
 
@@ -236,7 +241,7 @@
                 v-for="q in filteredQuestions"
                 :key="q.id"
                 class="wq-card"
-                :class="{ selected: paperForm.selectedQuestions.includes(q.id) }"
+                :class="{ selected: isQuestionSelected(q.id) }"
                 @click="toggleQuestion(q.id)"
               >
                 <div class="wq-header">
@@ -249,6 +254,11 @@
                 <div v-if="q.options && q.type === '选择题'" class="wq-options">
                   <div class="opt-item" v-for="(opt, idx) in parseOptions(q.options)" :key="idx">{{ opt }}</div>
                 </div>
+              </div>
+
+              <div v-if="!loadingQuestions && questionTotal === 0" class="pool-empty-hint">
+                <p>当前模块题库暂无题目（或筛选结果为空）。您可以直接添加<strong>自拟题</strong>加入本卷。</p>
+                <el-button type="primary" :icon="Plus" round @click="openManualQuestionDialog">添加自拟题</el-button>
               </div>
 
               <div v-if="questionTotal > 0" style="display:flex; justify-content:center; padding: 16px 0;">
@@ -293,7 +303,7 @@
               </div>
             </div>
             <div v-else class="empty-preview">
-              <p>您还没有选择任何题目，快去题库挑选吧！</p>
+              <p>您还没有选择任何题目。请从左侧题库勾选，或点击「添加自拟题」。</p>
             </div>
           </div>
         </div>
@@ -332,29 +342,102 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="paperDetailVisible" title="试卷模板详情" width="760px" class="apple-dialog" destroy-on-close>
+    <el-dialog v-model="paperDetailVisible" title="试卷模板详情" width="820px" class="apple-dialog" destroy-on-close>
       <div v-loading="paperDetailLoading">
         <template v-if="paperDetail">
           <p class="paper-detail-meta">
-            <strong>{{ paperDetail.paper?.title }}</strong>
+            <strong v-if="!paperDetailEditing">{{ paperDetail.paper?.title }}</strong>
+            <el-input
+              v-else
+              v-model="paperDetailForm.title"
+              size="small"
+              style="max-width: 360px"
+              placeholder="请输入试卷标题"
+            />
             <span class="muted"> · 模块 {{ paperDetail.paper?.category }} · 共 {{ (paperDetail.questions || []).length }} 题</span>
           </p>
           <el-divider />
-          <div v-for="(q, idx) in paperDetail.questions || []" :key="q.id" class="paper-q-block">
+          <div v-for="(q, idx) in paperDetailForm.questions || []" :key="q.id" class="paper-q-block">
             <div class="pq-head">
               <el-tag size="small" :type="getQTypeTag(q.type)">{{ q.type }}</el-tag>
               <strong>{{ idx + 1 }}.</strong>
-              <span>{{ q.content }}</span>
+              <span v-if="!paperDetailEditing">{{ q.content }}</span>
+              <el-input
+                v-else
+                v-model="q.content"
+                type="textarea"
+                :rows="2"
+                size="small"
+                style="width: 100%"
+              />
             </div>
             <div v-if="q.options && q.type === '选择题'" class="pq-opts">
-              <div v-for="(opt, oi) in parseOptions(q.options)" :key="oi">{{ opt }}</div>
+              <template v-if="!paperDetailEditing">
+                <div v-for="(opt, oi) in parseOptions(q.options)" :key="oi">{{ opt }}</div>
+              </template>
+              <template v-else>
+                <el-input
+                  v-for="(opt, oi) in q.optionsList"
+                  :key="oi"
+                  v-model="q.optionsList[oi]"
+                  size="small"
+                  style="margin-bottom: 6px"
+                  :placeholder="`选项 ${String.fromCharCode(65 + oi)}`"
+                />
+              </template>
             </div>
-            <p class="answer-line"><span class="label">参考答案：</span>{{ q.standardAnswer || '—' }}</p>
+            <p class="answer-line" v-if="!paperDetailEditing"><span class="label">参考答案：</span>{{ q.standardAnswer || '—' }}</p>
+            <el-input
+              v-else
+              v-model="q.standardAnswer"
+              size="small"
+              placeholder="标准答案"
+            />
           </div>
         </template>
       </div>
       <template #footer>
+        <el-button v-if="!paperDetailEditing" round @click="enterPaperEditMode">编辑模板</el-button>
+        <el-button v-else round @click="cancelPaperEditMode">取消编辑</el-button>
+        <el-button v-if="paperDetailEditing" type="primary" round :loading="savingPaperDetail" @click="savePaperDetail">保存修改</el-button>
         <el-button round @click="paperDetailVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="manualQuestionVisible" title="添加自拟题到本题卷" width="560px" class="apple-dialog" destroy-on-close>
+      <el-form label-position="top" :model="manualQuestionForm">
+        <el-form-item label="题型">
+          <el-select v-model="manualQuestionForm.type" size="large" style="width: 100%">
+            <el-option label="选择题" value="选择题" />
+            <el-option label="填空题" value="填空题" />
+            <el-option label="编程题" value="编程题" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="题干">
+          <el-input v-model="manualQuestionForm.content" type="textarea" :rows="4" placeholder="请输入题目内容..." size="large" />
+        </el-form-item>
+        <template v-if="manualQuestionForm.type === '选择题'">
+          <el-form-item label="选项（至少填 2 项；判分时学生选 A/B/C/D 对应下标）">
+            <el-input v-model="manualQuestionForm.optA" placeholder="选项 A" size="large" style="margin-bottom: 8px" />
+            <el-input v-model="manualQuestionForm.optB" placeholder="选项 B" size="large" style="margin-bottom: 8px" />
+            <el-input v-model="manualQuestionForm.optC" placeholder="选项 C（可选）" size="large" style="margin-bottom: 8px" />
+            <el-input v-model="manualQuestionForm.optD" placeholder="选项 D（可选）" size="large" />
+          </el-form-item>
+        </template>
+        <el-form-item :label="manualQuestionForm.type === '编程题' ? '参考答案（可选，用于自动判分需与学生活动完全一致）' : '标准答案（用于自动判分）'">
+          <el-input
+            v-model="manualQuestionForm.standardAnswer"
+            type="textarea"
+            :rows="manualQuestionForm.type === '编程题' ? 5 : 2"
+            :placeholder="manualQuestionForm.type === '选择题' ? '例如：A 或 B（多选一可写 A|B）' : '与题库中标准答案格式一致'"
+            size="large"
+          />
+        </el-form-item>
+        <p class="manual-hint">本题将归入当前组卷模块「{{ paperForm.category }}」，保存后可与其他题库题目一起勾选组卷。</p>
+      </el-form>
+      <template #footer>
+        <el-button round @click="manualQuestionVisible = false">取消</el-button>
+        <el-button type="primary" round :loading="savingManualQuestion" @click="submitManualQuestion">保存并加入已选</el-button>
       </template>
     </el-dialog>
 
@@ -545,6 +628,23 @@ const assignments = ref([])
 const paperDetailVisible = ref(false)
 const paperDetailLoading = ref(false)
 const paperDetail = ref(null)
+const paperDetailEditing = ref(false)
+const savingPaperDetail = ref(false)
+const paperDetailForm = reactive({ paperId: null, title: '', questions: [] })
+
+/** 组卷工作台内「自拟题」缓存（已写入题库，用于预览与组卷） */
+const workshopDraftQuestions = ref([])
+const manualQuestionVisible = ref(false)
+const savingManualQuestion = ref(false)
+const manualQuestionForm = reactive({
+  type: '选择题',
+  content: '',
+  standardAnswer: '',
+  optA: '',
+  optB: '',
+  optC: '',
+  optD: ''
+})
 
 const paperForm = reactive({ title: '', category: 'kmeans', selectedQuestions: [] })
 const examForm = reactive({ paperId: null, publishName: '', dateRange: [], timeLimit: 45 })
@@ -596,6 +696,7 @@ onMounted(() => {
 const openAssembleWorkshop = () => {
   paperForm.title = ''
   paperForm.selectedQuestions = []
+  workshopDraftQuestions.value = []
   previewMode.value = false
   currentQuestionType.value = 'ALL'
   questionKeyword.value = ''
@@ -603,6 +704,76 @@ const openAssembleWorkshop = () => {
   questionTotal.value = 0
   assembleWorkshopVisible.value = true
   loadQuestionPage()
+}
+
+const findQuestionInWorkshop = (id) =>
+  questionBank.value.find((q) => q.id === id) || workshopDraftQuestions.value.find((q) => q.id === id)
+
+const isQuestionSelected = (id) => paperForm.selectedQuestions.includes(id)
+
+const openManualQuestionDialog = () => {
+  manualQuestionForm.type = '选择题'
+  manualQuestionForm.content = ''
+  manualQuestionForm.standardAnswer = ''
+  manualQuestionForm.optA = ''
+  manualQuestionForm.optB = ''
+  manualQuestionForm.optC = ''
+  manualQuestionForm.optD = ''
+  manualQuestionVisible.value = true
+}
+
+const submitManualQuestion = async () => {
+  const content = (manualQuestionForm.content || '').trim()
+  if (!content) return ElMessage.warning('请填写题干')
+  const std = (manualQuestionForm.standardAnswer || '').trim()
+  if (manualQuestionForm.type !== '编程题' && !std) {
+    return ElMessage.warning('选择题与填空题请填写标准答案')
+  }
+  let options = []
+  if (manualQuestionForm.type === '选择题') {
+    options = [manualQuestionForm.optA, manualQuestionForm.optB, manualQuestionForm.optC, manualQuestionForm.optD]
+      .map((s) => (s || '').trim())
+      .filter(Boolean)
+    if (options.length < 2) return ElMessage.warning('选择题请至少填写 2 个选项')
+  }
+  savingManualQuestion.value = true
+  try {
+    const res = await axios.post('/api/teacher/lms/question/manual', {
+      type: manualQuestionForm.type,
+      content,
+      category: paperForm.category,
+      standardAnswer: std,
+      options
+    })
+    if (res.data.code !== 200) {
+      ElMessage.error(res.data.msg || '保存失败')
+      return
+    }
+    const row = res.data.data || {}
+    const id = row.id
+    if (id == null) {
+      ElMessage.error('未返回题目 ID')
+      return
+    }
+    const q = {
+      id,
+      type: row.type || manualQuestionForm.type,
+      content: row.content || content,
+      options: typeof row.options === 'string' ? row.options : JSON.stringify(options.length ? options : []),
+      standardAnswer: row.standardAnswer != null ? row.standardAnswer : std
+    }
+    workshopDraftQuestions.value.push(q)
+    if (!paperForm.selectedQuestions.includes(id)) {
+      paperForm.selectedQuestions.push(id)
+    }
+    ElMessage.success('自拟题已保存并加入已选列表')
+    manualQuestionVisible.value = false
+    loadQuestionPage()
+  } catch (e) {
+    ElMessage.error('保存自拟题失败')
+  } finally {
+    savingManualQuestion.value = false
+  }
 }
 
 // 动态计算筛选后的题目
@@ -625,14 +796,20 @@ watch(() => currentQuestionType.value, () => {
 
 // 动态计算已选中的题目详情 (用于预览)
 const selectedQuestionDetails = computed(() => {
-  return paperForm.selectedQuestions.map(id => questionBank.value.find(q => q.id === id)).filter(Boolean)
+  return paperForm.selectedQuestions.map((id) => findQuestionInWorkshop(id)).filter(Boolean)
 })
 
 // 题库交互函数
 const toggleQuestion = (id) => {
   const idx = paperForm.selectedQuestions.indexOf(id)
-  if (idx > -1) paperForm.selectedQuestions.splice(idx, 1)
-  else paperForm.selectedQuestions.push(id)
+  if (idx > -1) {
+    paperForm.selectedQuestions.splice(idx, 1)
+    if (workshopDraftQuestions.value.some((q) => q.id === id)) {
+      workshopDraftQuestions.value = workshopDraftQuestions.value.filter((q) => q.id !== id)
+    }
+  } else {
+    paperForm.selectedQuestions.push(id)
+  }
 }
 const parseOptions = (optStr) => {
   if (!optStr) return []
@@ -664,15 +841,77 @@ const openPaperDetail = async (paper) => {
   if (!paper?.id) return
   paperDetailVisible.value = true
   paperDetailLoading.value = true
+  paperDetailEditing.value = false
   paperDetail.value = null
   try {
     const res = await axios.get(`/api/teacher/lms/paper/${paper.id}/detail`)
-    if (res.data.code === 200) paperDetail.value = res.data.data
+    if (res.data.code === 200) {
+      paperDetail.value = res.data.data
+      paperDetailForm.paperId = paper.id
+      paperDetailForm.title = res.data.data?.paper?.title || ''
+      paperDetailForm.questions = (res.data.data?.questions || []).map((q) => ({
+        ...q,
+        optionsList: parseOptions(q.options)
+      }))
+    }
     else ElMessage.error(res.data.msg || '加载失败')
   } catch (e) {
     ElMessage.error('加载失败')
   } finally {
     paperDetailLoading.value = false
+  }
+}
+
+const enterPaperEditMode = () => {
+  if (!paperDetail.value) return
+  paperDetailEditing.value = true
+}
+
+const cancelPaperEditMode = () => {
+  if (!paperDetail.value) return
+  paperDetailEditing.value = false
+  paperDetailForm.title = paperDetail.value?.paper?.title || ''
+  paperDetailForm.questions = (paperDetail.value?.questions || []).map((q) => ({
+    ...q,
+    optionsList: parseOptions(q.options)
+  }))
+}
+
+const savePaperDetail = async () => {
+  if (!paperDetailForm.paperId) return
+  const title = (paperDetailForm.title || '').trim()
+  if (!title) return ElMessage.warning('试卷标题不能为空')
+  const payload = {
+    title,
+    questions: (paperDetailForm.questions || []).map((q) => ({
+      id: q.id,
+      type: q.type,
+      content: (q.content || '').trim(),
+      standardAnswer: (q.standardAnswer || '').trim(),
+      options: q.type === '选择题'
+        ? (q.optionsList || []).map((x) => (x || '').trim()).filter(Boolean)
+        : []
+    }))
+  }
+  for (const q of payload.questions) {
+    if (!q.content) return ElMessage.warning('题干不能为空')
+    if (q.type === '选择题' && q.options.length < 2) return ElMessage.warning('选择题至少保留 2 个选项')
+  }
+  savingPaperDetail.value = true
+  try {
+    const res = await axios.post(`/api/teacher/lms/paper/${paperDetailForm.paperId}/update`, payload)
+    if (res.data.code === 200) {
+      ElMessage.success('模板修改已保存')
+      paperDetailEditing.value = false
+      await openPaperDetail({ id: paperDetailForm.paperId })
+      loadExamsData()
+    } else {
+      ElMessage.error(res.data.msg || '保存失败')
+    }
+  } catch (e) {
+    ElMessage.error('保存失败')
+  } finally {
+    savingPaperDetail.value = false
   }
 }
 
@@ -845,6 +1084,18 @@ const handlePublishExam = async () => {
 .wq-content { font-size: 15px; color: #1d1d1f; line-height: 1.6; }
 .wq-options { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .opt-item { background: #f5f5f7; padding: 8px 12px; border-radius: 6px; font-size: 14px; color: #424245; }
+
+.pool-empty-hint {
+  text-align: center;
+  padding: 48px 24px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px dashed #d2d2d7;
+  color: #636366;
+  margin-bottom: 16px;
+}
+.pool-empty-hint p { margin: 0 0 16px; line-height: 1.6; }
+.manual-hint { font-size: 12px; color: #86868b; margin: 12px 0 0; line-height: 1.5; }
 
 /* 预览模式样式 */
 .preview-body { justify-content: center; overflow-y: auto; background: #e5e5ea; padding: 40px; }

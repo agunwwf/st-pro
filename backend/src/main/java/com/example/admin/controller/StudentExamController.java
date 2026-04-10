@@ -6,17 +6,22 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api/student/exam")
 public class StudentExamController {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    /** 标准答案中「多选一」写法：A|B、A/B、A或B、全角竖线 */
+    private static final Pattern STANDARD_ANSWER_ALT_SPLIT = Pattern.compile("[/|或｜]");
 
     @Autowired
     private StudentExamMapper studentExamMapper;
@@ -114,7 +119,7 @@ public class StudentExamController {
         if (studentId == null) return Result.error("越权操作！");
 
         Long assignmentId = Long.valueOf(req.get("assignmentId").toString());
-        String answersJson = req.get("answers").toString();
+        String answersJson = resolveAnswersJson(req.get("answers"));
 
         // 交卷校验归属
         if (studentExamMapper.canAccessAssignment(assignmentId, studentId) <= 0) {
@@ -142,6 +147,23 @@ public class StudentExamController {
         return Result.success((Object) null);
     }
 
+    /**
+     * 前端可能传字符串（JSON 文本）或已解析的对象；Map 被 toString 后无法反序列化，会导致整卷 0 分。
+     */
+    private String resolveAnswersJson(Object answersObj) {
+        if (answersObj == null) {
+            return "{}";
+        }
+        if (answersObj instanceof String) {
+            return (String) answersObj;
+        }
+        try {
+            return OBJECT_MAPPER.writeValueAsString(answersObj);
+        } catch (JsonProcessingException e) {
+            return "{}";
+        }
+    }
+
     private Integer calcScore(Long assignmentId, String answersJson) {
         JsonNode answerRoot;
         try {
@@ -158,29 +180,85 @@ public class StudentExamController {
             String qid = String.valueOf(idObj);
             String standard = q.get("standardAnswer") == null ? "" : String.valueOf(q.get("standardAnswer"));
             int score = q.get("score") == null ? 0 : Integer.parseInt(String.valueOf(q.get("score")));
+            String qType = q.get("type") == null ? "" : String.valueOf(q.get("type"));
 
-            JsonNode ansNode = answerRoot.get(qid);
-            String studentAns = ansNode == null || ansNode.isNull() ? "" : ansNode.asText("");
-            if (answerMatched(studentAns, standard)) {
+            JsonNode ansNode = findAnswerNode(answerRoot, qid);
+            String studentAns = extractAnswerText(ansNode);
+            if (answerMatched(studentAns, standard, qType)) {
                 total += score;
             }
         }
         return total;
     }
 
-    private boolean answerMatched(String studentAns, String standardAns) {
-        String s = normalize(studentAns);
-        String t = normalize(standardAns);
+    private boolean answerMatched(String studentAns, String standardAns, String questionType) {
+        boolean coding = questionType != null
+                && (questionType.contains("编程") || "CODING".equalsIgnoreCase(questionType));
+        String s = coding ? normalizeCoding(studentAns) : normalize(studentAns);
+        String t = coding ? normalizeCoding(standardAns) : normalize(standardAns);
         if (s.isEmpty() || t.isEmpty()) return false;
 
-        // 标准答案可能写成 A/B、A|B、A或B，任一命中即算对
-        String[] candidates = t.split("\\\\|/|或");
+        // 标准答案可能写成 A/B、A|B、A或B、A｜B，任一命中即算对
+        String[] candidates = STANDARD_ANSWER_ALT_SPLIT.split(t, -1);
         for (String c : candidates) {
-            if (s.equals(normalize(c))) {
+            String cand = coding ? normalizeCoding(c) : normalize(c);
+            if (s.equals(cand)) {
                 return true;
             }
         }
         return false;
+    }
+
+    /** 编程题不做全大写、不删除换行，仅整理空白与换行符 */
+    private String normalizeCoding(String v) {
+        if (v == null) return "";
+        return v.trim()
+                .replace("\r\n", "\n")
+                .replace('\r', '\n')
+                .replaceAll("[ \\t]+", " ");
+    }
+
+    private JsonNode findAnswerNode(JsonNode root, String qid) {
+        if (root == null || !root.isObject()) {
+            return null;
+        }
+        JsonNode direct = root.get(qid);
+        if (direct != null && !direct.isNull()) {
+            return direct;
+        }
+        try {
+            long want = Long.parseLong(qid);
+            Iterator<Map.Entry<String, JsonNode>> it = root.fields();
+            while (it.hasNext()) {
+                Map.Entry<String, JsonNode> e = it.next();
+                try {
+                    if (Long.parseLong(e.getKey()) == want) {
+                        return e.getValue();
+                    }
+                } catch (NumberFormatException ignored) {
+                    // ignore
+                }
+            }
+        } catch (NumberFormatException ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    private static String extractAnswerText(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return "";
+        }
+        if (node.isTextual()) {
+            return node.asText("");
+        }
+        if (node.isNumber()) {
+            return node.asText();
+        }
+        if (node.isBoolean()) {
+            return node.booleanValue() ? "TRUE" : "FALSE";
+        }
+        return node.asText("");
     }
 
     private String normalize(String v) {

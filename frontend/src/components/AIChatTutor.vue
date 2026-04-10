@@ -11,6 +11,17 @@ const messages = ref([]);
 const input = ref('');
 const scrollRef = ref(null);
 
+const currentUser = (() => {
+  try { return JSON.parse(localStorage.getItem('user') || '{}') } catch (_) { return {} }
+})()
+const isTeacher = String(currentUser?.role || '').toUpperCase() === 'ADMIN'
+
+const teacherAssignments = ref([])
+const teacherSelectedAssignmentId = ref(null)
+const teacherLoadingAssignments = ref(false)
+const generatingPaper = ref(false)
+const genForm = ref({ mcqCount: 10, fillCount: 5, codingCount: 1 })
+
 const modules = [
   { id: 'kmeans', name: 'K-Means 聚类' },
   { id: 'linear', name: '线性回归' },
@@ -38,6 +49,19 @@ onMounted(async () => {
     }
     scrollToBottom();
   } catch (e) { console.error("读取历史失败", e); }
+
+  if (isTeacher) {
+    teacherLoadingAssignments.value = true
+    try {
+      const aRes = await request.get('/api/teacher/lms/assignments')
+      if (aRes.data.code === 200) {
+        teacherAssignments.value = aRes.data.data || []
+        teacherSelectedAssignmentId.value = teacherAssignments.value?.[0]?.id ?? null
+      }
+    } finally {
+      teacherLoadingAssignments.value = false
+    }
+  }
 });
 
 // ================= 2. 核心：点击快捷按钮进行模块诊断 =================
@@ -119,6 +143,39 @@ const handleSend = async () => {
     scrollToBottom();
   } finally { isChatLoading.value = false; }
 };
+
+const teacherGeneratePaper = async () => {
+  if (!teacherSelectedAssignmentId.value) return alert('请先选择一场考试')
+  generatingPaper.value = true
+  try {
+    const res = await request.post(`/api/teacher/lms/assignment/${teacherSelectedAssignmentId.value}/ai-paper/generate`, {
+      mcqCount: genForm.value.mcqCount,
+      fillCount: genForm.value.fillCount,
+      codingCount: genForm.value.codingCount
+    })
+    if (res.data.code !== 200) {
+      alert(res.data.msg || '生成失败')
+      return
+    }
+    const data = res.data.data || {}
+    const msg = {
+      role: 'assistant',
+      content:
+        `✅ 已生成试卷模板：${data.title || '未命名'}\n` +
+        `- 模块：${data.category || '-'}\n` +
+        `- 题库抽题：${data.pickedFromBank || 0} 道\n` +
+        `- AI 自拟：${data.generated || 0} 道\n` +
+        `你可以回到【教师中心 → 测验中台 → 试卷模板库】里查看并修改后再发布。`
+    }
+    messages.value.push(msg)
+    await request.post('/api/ai/chat/save', msg)
+    scrollToBottom()
+  } catch (e) {
+    alert('生成失败，请检查后端与大模型配置')
+  } finally {
+    generatingPaper.value = false
+  }
+}
 </script>
 
 <template>
@@ -146,17 +203,36 @@ const handleSend = async () => {
     </div>
 
     <div class="bottom-panel">
-      <div class="quick-actions">
+      <div v-if="!isTeacher" class="quick-actions">
         <span class="action-label"><Target :size="14" /> 快捷诊断:</span>
         <button
-            v-for="mod in modules"
-            :key="mod.id"
-            @click="handleAnalyzeModule(mod.id, mod.name)"
-            class="chip-btn"
-            :disabled="isChatLoading"
+          v-for="mod in modules"
+          :key="mod.id"
+          @click="handleAnalyzeModule(mod.id, mod.name)"
+          class="chip-btn"
+          :disabled="isChatLoading"
         >
           {{ mod.name }}
         </button>
+      </div>
+
+      <div v-else class="quick-actions" style="flex-wrap: wrap; align-items: flex-start;">
+        <span class="action-label"><Target :size="14" /> AI 组卷:</span>
+        <div style="display:flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+          <select v-model="teacherSelectedAssignmentId" class="teacher-select" :disabled="teacherLoadingAssignments || generatingPaper">
+            <option v-for="a in teacherAssignments" :key="a.id" :value="a.id">
+              {{ a.publishName || ('考试 #' + a.id) }}（{{ a.paperTitle || '-' }}）
+            </option>
+          </select>
+          <div class="counts">
+            <label>选<input type="number" min="0" max="50" v-model.number="genForm.mcqCount" :disabled="generatingPaper"/></label>
+            <label>填<input type="number" min="0" max="50" v-model.number="genForm.fillCount" :disabled="generatingPaper"/></label>
+            <label>编<input type="number" min="0" max="10" v-model.number="genForm.codingCount" :disabled="generatingPaper"/></label>
+          </div>
+          <button class="chip-btn" @click="teacherGeneratePaper" :disabled="generatingPaper || teacherLoadingAssignments">
+            {{ generatingPaper ? '生成中...' : '生成试卷模板' }}
+          </button>
+        </div>
       </div>
 
       <div class="input-container">
@@ -216,6 +292,29 @@ pre { white-space: pre-wrap; font-family: inherit; margin: 0; }
 .chip-btn { background: transparent; border: 1px solid var(--border-color); padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--text-color); cursor: pointer; transition: 0.2s; white-space: nowrap;}
 .chip-btn:hover:not(:disabled) { background: var(--text-color); color: var(--card-bg); }
 .chip-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.teacher-select {
+  height: 30px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-color);
+  padding: 0 10px;
+  max-width: 360px;
+}
+
+.counts { display:flex; gap: 8px; align-items: center; }
+.counts label { display:flex; gap: 6px; align-items:center; font-size: 12px; color: #86868b; }
+.counts input {
+  width: 64px;
+  height: 30px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-color);
+  padding: 0 8px;
+  outline: none;
+}
 
 
 .input-container { position: relative; display: flex; align-items: center; }

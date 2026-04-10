@@ -3,7 +3,7 @@
     <div class="glass-card login-box">
       <div class="logo-area">
         <img src="/favicon.ico" class="app-logo" />
-        <h2>{{ isLogin ? '登录教学平台' : '注册新账号' }}</h2>
+        <h2>{{ isLogin ? '欢迎登录知练云' : '注册知练云账号' }}</h2>
         <p class="subtitle">{{ isLogin ? '欢迎回来，请登录你的账号。' : '创建账号后即可开始学习。' }}</p>
       </div>
 
@@ -33,9 +33,7 @@
       </div>
     </div>
 
-    <div class="copyright">
-      版权所有 © 2024 教学平台
-    </div>
+  
   </div>
 </template>
 
@@ -97,8 +95,10 @@ const handleAuth = async () => {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  background-color: #000;
-  background-image: radial-gradient(circle at 50% 0%, #2c3e50 0%, #000000 100%);
+  background-color: #fff7ef;
+  background-image: radial-gradient(circle at 20% 10%, #ffe2c2 0%, transparent 45%),
+    radial-gradient(circle at 80% 0%, #ffd3b8 0%, transparent 40%),
+    linear-gradient(160deg, #fff7ef 0%, #ffe9d6 55%, #ffd9c2 100%);
   position: relative;
   overflow: hidden;
 }
@@ -108,10 +108,10 @@ const handleAuth = async () => {
   padding: 48px;
   text-align: center;
   z-index: 10;
-  background: rgba(28, 28, 30, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 250, 244, 0.9);
+  border: 1px solid rgba(243, 188, 146, 0.45);
   border-radius: 18px;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+  box-shadow: 0 20px 40px rgba(212, 132, 77, 0.18);
   backdrop-filter: blur(20px);
 }
 
@@ -136,12 +136,12 @@ const handleAuth = async () => {
   font-weight: 600;
   margin: 0 0 8px 0;
   font-size: 24px;
-  color: #fff;
+  color: #8f3b14;
   letter-spacing: -0.5px;
 }
 
 .subtitle {
-  color: #86868b;
+  color: #9d6648;
   font-size: 15px;
   margin: 0;
 }
@@ -151,25 +151,25 @@ const handleAuth = async () => {
   height: 48px;
   font-size: 17px;
   margin-top: 24px;
-  background: #0071e3;
+  background: linear-gradient(135deg, #f08a4b 0%, #ef6a5b 100%);
   border: none;
   border-radius: 980px;
   transition: all 0.3s;
 }
 
 .submit-btn:hover {
-  background: #0077ed;
+  background: linear-gradient(135deg, #ea7d3b 0%, #e85f4f 100%);
   transform: scale(1.02);
 }
 
 .footer-links {
   margin-top: 32px;
   font-size: 14px;
-  color: #86868b;
+  color: #9d6648;
 }
 
 .footer-links a {
-  color: #2997ff;
+  color: #d6592d;
   cursor: pointer;
   margin-left: 4px;
 }
@@ -178,17 +178,10 @@ const handleAuth = async () => {
   text-decoration: underline;
 }
 
-.copyright {
-  position: absolute;
-  bottom: 24px;
-  color: #424245;
-  font-size: 12px;
-}
-
 /* 强制覆盖 Element Plus 样式，确保输入框可见 */
 :deep(.el-input__wrapper) {
-  background-color: rgba(255, 255, 255, 0.1) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  background-color: rgba(255, 245, 236, 0.95) !important;
+  border: 1px solid rgba(236, 176, 135, 0.6) !important;
   box-shadow: none !important;
   height: 48px;
   padding: 0 16px;
@@ -196,20 +189,20 @@ const handleAuth = async () => {
 }
 
 :deep(.el-input__wrapper.is-focus) {
-  border-color: #0071e3 !important;
-  background-color: rgba(255, 255, 255, 0.15) !important;
+  border-color: #e96c3f !important;
+  background-color: #fffaf3 !important;
 }
 
 :deep(.el-input__inner) {
-  color: #fff !important;
+  color: #5f2e14 !important;
   height: 48px;
 }
 
 :deep(.el-input__inner::placeholder) {
-  color: #86868b;
+  color: #bf8c6d;
 }
 
 :deep(.el-input__icon) {
-  color: #86868b;
+  color: #c18159;
 }
 </style>

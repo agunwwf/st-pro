@@ -8,8 +8,7 @@ import java.util.List;
 @Mapper
 public interface AiSystemMapper {
 
-    // --- 1. 获取 ST 病历 ---
-    // MySQL JSON 列读取：显式 CAST + 指定字符集，避免驱动/拼接导致拿到空字符串
+   
     @Select("SELECT CAST(answers_detail AS CHAR CHARACTER SET utf8mb4) FROM sys_quiz_score WHERE user_id = #{userId} AND module_id = #{moduleId}")
     String getQuizDetailByModule(@Param("userId") Long userId, @Param("moduleId") String moduleId);
 
@@ -27,7 +26,7 @@ public interface AiSystemMapper {
             "WHERE user_id = #{userId} ORDER BY create_time DESC")
     List<AiQuizRecord> selectQuizList(Long userId);
 
-    // 【修复】必须带上 userId 校验
+ 
     @Select("SELECT * FROM sys_ai_quiz_record WHERE id = #{id} AND user_id = #{userId}")
     AiQuizRecord selectQuizById(@Param("id") Long id, @Param("userId") Long userId);
 
@@ -50,12 +49,11 @@ public interface AiSystemMapper {
     @Update("UPDATE sys_ai_quiz_record SET title = #{title} WHERE id = #{id} AND user_id = #{userId}")
     int renameQuiz(@Param("id") Long id, @Param("userId") Long userId, @Param("title") String title);
 
-    // 【修复】必须带上 userId 校验
     @Update("UPDATE sys_ai_quiz_record SET score = #{score}, user_answers = #{userAnswers}, status = 1 " +
             "WHERE id = #{id} AND user_id = #{userId}")
     int updateQuizResult(@Param("id") Long id, @Param("score") Integer score, @Param("userAnswers") String userAnswers, @Param("userId") Long userId);
 
-    // 【修复】必须带上 userId 校验
+  
     @Delete("DELETE FROM sys_ai_quiz_record WHERE id = #{id} AND user_id = #{userId}")
     int deleteQuizById(@Param("id") Long id, @Param("userId") Long userId);
 }

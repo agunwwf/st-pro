@@ -127,7 +127,7 @@ public class ChatController {
     public Result getMessages(@RequestParam String user1, @RequestParam String user2, HttpServletRequest request) {
         String me = (String) request.getAttribute("username");
         if (me == null || me.trim().isEmpty()) return Result.error("请先登录");
-        // 只允许查询自己的会话，防止越权读取
+
         if (!me.equals(user1) && !me.equals(user2)) return Result.error("无权限查看该会话");
         String peer = me.equals(user1) ? user2 : user1;
         messageMapper.ensureClearLogTable();
@@ -138,7 +138,7 @@ public class ChatController {
         return Result.success(messageMapper.getHistory(me, peer));
     }
 
-    // 6.1 保存消息（落库），刷新后仍可读到历史记录
+    // 保存消息 刷新后仍可读到历史记录
     @PostMapping("/message/save")
     public Result saveMessage(@RequestBody Map<String, Object> payload, HttpServletRequest request) {
         String fromUsername = (String) request.getAttribute("username");

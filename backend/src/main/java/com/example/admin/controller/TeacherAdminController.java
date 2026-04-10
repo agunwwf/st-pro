@@ -6,6 +6,7 @@ import com.example.admin.mapper.TeacherAdminMapper;
 import com.example.admin.mapper.UserMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +16,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -34,6 +36,32 @@ public class TeacherAdminController {
     private StudentExamMapper studentExamMapper;
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    private static final String TEACHER_PAPER_SYSTEM = """
+            你是一个严谨的【高校老师出卷助教】。
+            你的目标：根据一场班级考试的统计薄弱点，为老师生成一张“针对性训练卷”。
+            规则：
+            1) 题目必须围绕薄弱点（低正确率/常错点）；
+            2) 选择题必须给出 4 个选项，且标准答案必须是 A/B/C/D 中的一个；
+            3) 填空题标准答案给出核心关键词/关键数值即可；
+            4) 编程题给出：题干 + 标准答案（可写参考实现或关键思路；若不便给全代码，可留空，但要给出可判分点）；
+            5) 必须输出严格合法 JSON，禁止 Markdown 代码块，禁止多余文字。
+            输出 JSON 格式固定为：
+            {
+              "title": "试卷标题",
+              "questions": [
+                { "type": "选择题", "content": "题干", "options": ["...","...","...","..."], "standardAnswer": "A" },
+                { "type": "填空题", "content": "题干", "standardAnswer": "..." },
+                { "type": "编程题", "content": "题干", "standardAnswer": "..." }
+              ]
+            }
+            """;
+
+    private final ChatClient teacherPaperClient;
+
+    public TeacherAdminController(ChatClient.Builder builder) {
+        this.teacherPaperClient = builder.defaultSystem(TEACHER_PAPER_SYSTEM).build();
+    }
 
     private Long getUserIdFromToken(HttpServletRequest request) {
         Object userIdObj = request.getAttribute("userId");
@@ -115,11 +143,81 @@ public class TeacherAdminController {
         teacherAdminMapper.insertPaper(req);
 
         Long paperId = Long.valueOf(req.get("id").toString());
-        List<Integer> questionIds = (List<Integer>) req.get("questionIds");
-        for (Integer qId : questionIds) {
-            teacherAdminMapper.insertPaperQuestion(paperId, qId.longValue());
+        @SuppressWarnings("unchecked")
+        List<Object> questionIds = (List<Object>) req.get("questionIds");
+        if (questionIds == null || questionIds.isEmpty()) {
+            return Result.error("请至少选择一道题");
+        }
+        for (Object qIdObj : questionIds) {
+            long qid = qIdObj instanceof Number ? ((Number) qIdObj).longValue() : Long.parseLong(qIdObj.toString().trim());
+            teacherAdminMapper.insertPaperQuestion(paperId, qid);
         }
         return Result.success((Object) null);
+    }
+
+    /** 教师自拟题：写入题库并可在组卷时选用 */
+    @PostMapping("/lms/question/manual")
+    @Transactional
+    public Result<Map<String, Object>> createManualQuestion(HttpServletRequest request, @RequestBody Map<String, Object> req) {
+        if (!isAdmin(request)) return Result.error("未授权访问");
+        Long teacherId = getUserIdFromToken(request);
+        if (teacherId == null) return Result.error("未授权访问");
+
+        String type = req.get("type") == null ? "" : req.get("type").toString().trim();
+        String content = req.get("content") == null ? "" : req.get("content").toString().trim();
+        String standardAnswer = req.get("standardAnswer") == null ? "" : req.get("standardAnswer").toString().trim();
+        String category = req.get("category") == null ? "" : req.get("category").toString().trim();
+
+        if (content.isEmpty()) {
+            return Result.error("题干不能为空");
+        }
+        if (!type.equals("选择题") && !type.equals("填空题") && !type.equals("编程题")) {
+            return Result.error("题型须为：选择题、填空题、编程题");
+        }
+        if (standardAnswer.isEmpty() && (type.equals("选择题") || type.equals("填空题"))) {
+            return Result.error("选择题与填空题请填写标准答案（用于自动判分）");
+        }
+
+        List<String> opts = new ArrayList<>();
+        if (type.equals("选择题")) {
+            Object optObj = req.get("options");
+            if (optObj instanceof List) {
+                for (Object x : (List<?>) optObj) {
+                    if (x != null && !x.toString().trim().isEmpty()) {
+                        opts.add(x.toString().trim());
+                    }
+                }
+            }
+            if (opts.size() < 2) {
+                return Result.error("选择题至少需要 2 个非空选项");
+            }
+        }
+
+        String optionsJson;
+        try {
+            optionsJson = OBJECT_MAPPER.writeValueAsString(opts);
+        } catch (Exception e) {
+            return Result.error("选项数据无效");
+        }
+
+        String stdForDb = standardAnswer.isEmpty() ? " " : standardAnswer;
+
+        Map<String, Object> row = new HashMap<>();
+        row.put("teacherId", teacherId);
+        row.put("category", category.isEmpty() ? "kmeans" : category);
+        row.put("type", type);
+        row.put("content", content);
+        row.put("optionsJson", optionsJson);
+        row.put("standardAnswer", stdForDb);
+        teacherAdminMapper.insertTeacherQuestion(row);
+
+        Map<String, Object> out = new HashMap<>();
+        out.put("id", row.get("id"));
+        out.put("type", type);
+        out.put("content", content);
+        out.put("options", optionsJson);
+        out.put("standardAnswer", standardAnswer);
+        return Result.success(out);
     }
 
     @PostMapping("/lms/assignment/publish")
@@ -154,6 +252,73 @@ public class TeacherAdminController {
         data.put("paper", paper);
         data.put("questions", questions);
         return Result.success(data);
+    }
+
+    /** 修改试卷模板标题与题目内容（用于二次编辑） */
+    @PostMapping("/lms/paper/{paperId}/update")
+    @Transactional
+    public Result<Object> updatePaper(
+            HttpServletRequest request,
+            @PathVariable Long paperId,
+            @RequestBody Map<String, Object> body
+    ) {
+        if (!isAdmin(request)) return Result.error("未授权访问");
+        Long teacherId = getUserIdFromToken(request);
+        if (teacherId == null) return Result.error("未授权访问");
+
+        Map<String, Object> paper = teacherAdminMapper.getPaperForTeacher(paperId, teacherId);
+        if (paper == null) return Result.error("试卷不存在");
+
+        String title = body.get("title") == null ? "" : String.valueOf(body.get("title")).trim();
+        if (title.isEmpty()) return Result.error("试卷标题不能为空");
+        teacherAdminMapper.renamePaper(paperId, teacherId, title);
+
+        Object questionsObj = body.get("questions");
+        if (questionsObj instanceof List<?> list) {
+            for (Object qObj : list) {
+                if (!(qObj instanceof Map<?, ?> qMapRaw)) continue;
+                Long qid;
+                try {
+                    Object idObj = qMapRaw.get("id");
+                    qid = idObj == null ? null : Long.valueOf(String.valueOf(idObj));
+                } catch (Exception e) {
+                    qid = null;
+                }
+                if (qid == null) continue;
+
+                String type = qMapRaw.get("type") == null ? "" : String.valueOf(qMapRaw.get("type")).trim();
+                String content = qMapRaw.get("content") == null ? "" : String.valueOf(qMapRaw.get("content")).trim();
+                String standardAnswer = qMapRaw.get("standardAnswer") == null ? "" : String.valueOf(qMapRaw.get("standardAnswer")).trim();
+                if (content.isEmpty()) continue;
+                if (!"选择题".equals(type) && !"填空题".equals(type) && !"编程题".equals(type)
+                        && !"SINGLE_CHOICE".equalsIgnoreCase(type) && !"FILL_BLANK".equalsIgnoreCase(type) && !"CODING".equalsIgnoreCase(type)) {
+                    continue;
+                }
+
+                List<String> opts = new ArrayList<>();
+                if ("选择题".equals(type) || "SINGLE_CHOICE".equalsIgnoreCase(type)) {
+                    Object optionsObj = qMapRaw.get("options");
+                    if (optionsObj instanceof List<?> optsList) {
+                        for (Object x : optsList) {
+                            if (x != null && !x.toString().trim().isEmpty()) {
+                                opts.add(x.toString().trim());
+                            }
+                        }
+                    }
+                    if (opts.size() < 2) continue;
+                }
+                String optionsJson;
+                try {
+                    optionsJson = OBJECT_MAPPER.writeValueAsString(opts);
+                } catch (Exception e) {
+                    continue;
+                }
+                teacherAdminMapper.updateQuestionEditableFields(
+                        qid, type, content, optionsJson, standardAnswer.isEmpty() ? " " : standardAnswer
+                );
+            }
+        }
+        return Result.success((Object) null);
     }
 
     /** 删除试卷模板：若已被考试任务引用则禁止删除 */
@@ -294,6 +459,256 @@ public class TeacherAdminController {
         data.put("questions", questionStats);
         data.put("examEnded", examEnded);
         return Result.success(data);
+    }
+
+    /**
+     * 老师 AI 自动组卷：题库优先，不足用 AI 生成自拟题补齐，最终落库为一张试卷模板（出现在模板库中）。
+     * Body:
+     * {
+     *   "mcqCount": 10,
+     *   "fillCount": 5,
+     *   "codingCount": 1,
+     *   "title": "可选自定义标题"
+     * }
+     */
+    @PostMapping("/lms/assignment/{assignmentId}/ai-paper/generate")
+    @Transactional
+    public Result<Map<String, Object>> generateAiPaperFromAssignment(
+            HttpServletRequest request,
+            @PathVariable Long assignmentId,
+            @RequestBody Map<String, Object> body
+    ) {
+        if (!isAdmin(request)) return Result.error("未授权访问");
+        Long teacherId = getUserIdFromToken(request);
+        if (teacherId == null) return Result.error("未授权访问");
+
+        Map<String, Object> assign = teacherAdminMapper.getAssignmentForTeacher(assignmentId, teacherId);
+        if (assign == null) return Result.error("考试任务不存在");
+
+        LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
+        LocalDateTime start = toLocalDateTime(assign.get("startTime"));
+        LocalDateTime end = toLocalDateTime(assign.get("endTime"));
+        if (start != null && now.isBefore(start)) {
+            return Result.error("考试尚未开始，暂不能基于本场考试自动组卷");
+        }
+        if (end != null && now.isBefore(end)) {
+            return Result.error("考试未截止，暂不能基于本场考试自动组卷");
+        }
+
+        int mcqCount = parseInt(body.get("mcqCount"), 10, 0, 50);
+        int fillCount = parseInt(body.get("fillCount"), 5, 0, 50);
+        int codingCount = parseInt(body.get("codingCount"), 1, 0, 10);
+        if (mcqCount + fillCount + codingCount <= 0) {
+            return Result.error("题目数量不能全为 0");
+        }
+
+        Long paperIdSrc = assign.get("paperId") == null ? null : Long.valueOf(String.valueOf(assign.get("paperId")));
+        String category = paperIdSrc == null ? null : teacherAdminMapper.getPaperCategory(paperIdSrc);
+        if (category == null || category.isBlank()) category = "kmeans";
+
+        // 1) 找薄弱点：按正确率从低到高取前 N 道（N 取 6，足够做提示/出题）
+        List<Map<String, Object>> qStats = studentExamMapper.listExamQuestionsWithAnswer(assignmentId);
+        if (qStats == null || qStats.isEmpty()) {
+            return Result.error("本场考试没有题目数据，不能自动组卷");
+        }
+        // 复用 analytics 里的计算：为了不重复走一遍，我们直接按“全班提交记录”重新算一遍正确率
+        List<Map<String, Object>> rawRecords = teacherAdminMapper.listRecordsForAssignment(assignmentId);
+        List<Map<String, Object>> submittedRows = new ArrayList<>();
+        for (Map<String, Object> row : rawRecords) {
+            int st = row.get("status") == null ? 0 : Integer.parseInt(row.get("status").toString());
+            if (st >= 1) submittedRows.add(row);
+        }
+        if (submittedRows.isEmpty()) {
+            return Result.error("本场考试暂无可分析的交卷数据，不能自动组卷");
+        }
+
+        List<Map<String, Object>> weakList = new ArrayList<>();
+        for (Map<String, Object> q : qStats) {
+            Long qid = Long.valueOf(String.valueOf(q.get("id")));
+            String type = q.get("type") == null ? "" : String.valueOf(q.get("type"));
+            String std = q.get("standardAnswer") == null ? null : String.valueOf(q.get("standardAnswer"));
+            int correct = 0;
+            int base = submittedRows.size();
+            for (Map<String, Object> rec : submittedRows) {
+                String json = rec.get("answersJson") == null ? null : rec.get("answersJson").toString();
+                JsonNode root;
+                try {
+                    root = OBJECT_MAPPER.readTree(json == null || json.isBlank() ? "{}" : json);
+                } catch (Exception e) {
+                    root = OBJECT_MAPPER.createObjectNode();
+                }
+                String ans = readAnswerForQuestion(root, qid);
+                if (!ans.isEmpty() && answersMatch(type, ans, std)) {
+                    correct++;
+                }
+            }
+            double rate = base > 0 ? (100.0 * correct / base) : 0.0;
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", qid);
+            item.put("type", type);
+            item.put("content", q.get("content"));
+            item.put("correctRate", rate);
+            weakList.add(item);
+        }
+        weakList.sort((a, b) -> Double.compare(
+                Double.parseDouble(String.valueOf(a.getOrDefault("correctRate", 0))),
+                Double.parseDouble(String.valueOf(b.getOrDefault("correctRate", 0)))
+        ));
+        if (weakList.size() > 6) weakList = weakList.subList(0, 6);
+
+        // 2) 题库优先：同模块按题型抽题（避免复用原试卷题目，减少“换皮重考”）
+        List<Long> excludeIds = new ArrayList<>();
+        for (Map<String, Object> q : qStats) {
+            if (q.get("id") != null) excludeIds.add(Long.valueOf(String.valueOf(q.get("id"))));
+        }
+        List<Long> selectedQids = new ArrayList<>();
+
+
+    
+        List<Long> pickedMcq = pickFromBank(category, "选择题", "SINGLE_CHOICE", excludeIds, mcqCount);
+        excludeIds.addAll(pickedMcq);
+        List<Long> pickedFill = pickFromBank(category, "填空题", "FILL_BLANK", excludeIds, fillCount);
+        excludeIds.addAll(pickedFill);
+        List<Long> pickedCoding = pickFromBank(category, "编程题", "CODING", excludeIds, codingCount);
+        excludeIds.addAll(pickedCoding);
+
+        selectedQids.addAll(pickedMcq);
+        selectedQids.addAll(pickedFill);
+        selectedQids.addAll(pickedCoding);
+
+        int needMcq = Math.max(0, mcqCount - pickedMcq.size());
+        int needFill = Math.max(0, fillCount - pickedFill.size());
+        int needCoding = Math.max(0, codingCount - pickedCoding.size());
+
+        // 用 AI 生成自拟题补齐（生成后写入 sys_question，再加入试卷）
+        List<Long> generatedQids = new ArrayList<>();
+        if (needMcq + needFill + needCoding > 0) {
+            String assignName = assign.get("publishName") == null ? "" : String.valueOf(assign.get("publishName"));
+            String prompt = buildTeacherPaperPrompt(category, assignName, weakList, needMcq, needFill, needCoding);
+            try {
+                String raw = teacherPaperClient.prompt().user(prompt).call().content();
+                //bug修复：把json中的```json和```去掉   
+                String clean = raw.replace("```json", "").replace("```", "").trim();
+                JsonNode root = OBJECT_MAPPER.readTree(clean);
+                String genTitle = root.path("title").asText("");
+                JsonNode questionsNode = root.path("questions");
+                if (questionsNode.isArray()) {
+                    for (JsonNode qn : questionsNode) {
+                        String t = qn.path("type").asText("").trim();
+                        String content = qn.path("content").asText("").trim();
+                        if (content.isEmpty() || t.isEmpty()) continue;
+
+                        List<String> opts = new ArrayList<>();
+                        if ("选择题".equals(t) && qn.has("options") && qn.get("options").isArray()) {
+                            for (JsonNode on : qn.get("options")) {
+                                String ov = on.asText("").trim();
+                                if (!ov.isEmpty()) opts.add(ov);
+                            }
+                            if (opts.size() != 4) continue; // 强约束：必须 4 选项
+                        }
+                        String std = qn.path("standardAnswer").asText("");
+                        if (!"编程题".equals(t) && (std == null || std.trim().isEmpty())) continue;
+
+                        Map<String, Object> row = new HashMap<>();
+                        row.put("teacherId", teacherId);
+                        row.put("category", category);
+                        row.put("type", t);
+                        row.put("content", content);
+                        row.put("optionsJson", OBJECT_MAPPER.writeValueAsString(opts));
+                        row.put("standardAnswer", (std == null || std.isBlank()) ? " " : std);
+                        teacherAdminMapper.insertTeacherQuestion(row);
+                        Object newIdObj = row.get("id");
+                        if (newIdObj != null) {
+                            generatedQids.add(Long.valueOf(String.valueOf(newIdObj)));
+                        }
+                    }
+                }
+            } catch (Exception ignored) {
+               
+            }
+        }
+
+        // 创建试卷模板并挂题
+        String customTitle = body.get("title") == null ? "" : String.valueOf(body.get("title")).trim();
+        String title = !customTitle.isEmpty()
+                ? customTitle
+                : buildDefaultPaperTitle(category);
+
+        Map<String, Object> paperRow = new HashMap<>();
+        paperRow.put("teacherId", teacherId);
+        paperRow.put("title", title);
+        paperRow.put("category", category);
+        teacherAdminMapper.insertPaper(paperRow);
+        Long newPaperId = Long.valueOf(String.valueOf(paperRow.get("id")));
+
+        for (Long qid : selectedQids) {
+            teacherAdminMapper.insertPaperQuestion(newPaperId, qid);
+        }
+        for (Long qid : generatedQids) {
+            teacherAdminMapper.insertPaperQuestion(newPaperId, qid);
+        }
+
+        Map<String, Object> out = new HashMap<>();
+        out.put("paperId", newPaperId);
+        out.put("title", title);
+        out.put("category", category);
+        out.put("pickedFromBank", selectedQids.size());
+        out.put("generated", generatedQids.size());
+        out.put("weakTop", weakList);
+        return Result.success(out);
+    }
+
+    private int parseInt(Object v, int def, int min, int max) {
+        int x = def;
+        if (v != null) {
+            try { x = Integer.parseInt(String.valueOf(v)); } catch (Exception ignored) { x = def; }
+        }
+        if (x < min) x = min;
+        if (x > max) x = max;
+        return x;
+    }
+
+    private List<Long> pickFromBank(String category, String cnType, String enumType, List<Long> exclude, int limit) {
+        if (limit <= 0) return new ArrayList<>();
+        List<Map<String, Object>> rows = teacherAdminMapper.pickQuestionsForAiPaper(category, cnType, exclude, limit);
+        if (rows == null || rows.isEmpty()) {
+            rows = teacherAdminMapper.pickQuestionsForAiPaper(category, enumType, exclude, limit);
+        }
+        List<Long> ids = new ArrayList<>();
+        for (Map<String, Object> r : rows) {
+            if (r.get("id") != null) {
+                try { ids.add(Long.valueOf(String.valueOf(r.get("id")))); } catch (Exception ignored) {}
+            }
+        }
+        return ids;
+    }
+
+    private String buildTeacherPaperPrompt(String category, String assignmentName, List<Map<String, Object>> weakTop,
+                                          int mcqNeed, int fillNeed, int codingNeed) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("模块：").append(category).append("\n");
+        if (assignmentName != null && !assignmentName.isBlank()) sb.append("参考考试：").append(assignmentName).append("\n");
+        sb.append("班级薄弱题（低正确率优先）：\n");
+        for (Map<String, Object> w : weakTop) {
+            sb.append("- 正确率 ").append(String.format("%.1f", Double.parseDouble(String.valueOf(w.getOrDefault("correctRate", 0)))))
+              .append("% | ").append(String.valueOf(w.getOrDefault("type", "")))
+              .append(" | ").append(String.valueOf(w.getOrDefault("content", ""))).append("\n");
+        }
+        sb.append("\n请生成：选择题 ").append(mcqNeed).append(" 道，填空题 ").append(fillNeed).append(" 道，编程题 ").append(codingNeed).append(" 道。\n");
+        sb.append("注意：选择题必须 4 个选项，且标准答案为 A/B/C/D。\n");
+        return sb.toString();
+    }
+
+    private String buildDefaultPaperTitle(String category) {
+        String md = LocalDateTime.now().format(DateTimeFormatter.ofPattern("MM-dd"));
+        String module;
+        if ("kmeans".equalsIgnoreCase(category)) module = "K-Means";
+        else if ("linear".equalsIgnoreCase(category)) module = "线性回归";
+        else if ("logistic".equalsIgnoreCase(category)) module = "逻辑回归";
+        else if ("neural".equalsIgnoreCase(category)) module = "神经网络";
+        else if ("text".equalsIgnoreCase(category)) module = "文本分类";
+        else module = (category == null || category.isBlank()) ? "算法" : category;
+        return module + " 练习卷 " + md;
     }
 
     /** 已交卷学生列表（用于教师逐份批改入口） */
