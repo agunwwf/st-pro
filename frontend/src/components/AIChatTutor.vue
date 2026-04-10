@@ -162,9 +162,11 @@ const teacherGeneratePaper = async () => {
       role: 'assistant',
       content:
         `✅ 已生成试卷模板：${data.title || '未命名'}\n` +
-        `- 模块：${data.category || '-'}\n` +
-        `- 题库抽题：${data.pickedFromBank || 0} 道\n` +
-        `- AI 自拟：${data.generated || 0} 道\n` +
+        `模块：${data.category || '-'}\n` +
+        `题库抽题：${data.pickedFromBank || 0} 道\n` +
+        `自拟：${data.generated || 0} 道\n` +
+        `AI调用：${data.aiInvoked ? '是' : '否'}${data.aiInvoked ? `（耗时 ${data.aiCostMs || 0} ms）` : ''}\n` +
+        `${data.aiSkippedReason ? `- 说明：${data.aiSkippedReason}\n` : ''}` +
         `你可以回到【教师中心 → 测验中台 → 试卷模板库】里查看并修改后再发布。`
     }
     messages.value.push(msg)
