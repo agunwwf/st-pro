@@ -36,7 +36,7 @@ def load_from_disk():
         try:
             with open(PROGRESS_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except:
+        except Exception:
             return {}
     return {}
 
@@ -180,13 +180,6 @@ for i in range(len(feature_names_cn)):
         # 优先读硬盘 -> 硬盘没有则读默认骨架
         st.session_state["step1_code"] = saved_data.get("step1_code", code_skeleton)
 
-    # --- 3. 定义重置按钮的回调函数 ---
-    def reset_callback():
-        # 点击按钮时，直接把 session_state 改回默认
-        st.session_state["step1_code"] = code_skeleton
-        # 并立即存盘
-        save_to_disk()
-
     # --- 4. 代码输入框 ---
     # 注意：
     # key="step1_code": 绑定 session_state
@@ -199,8 +192,7 @@ for i in range(len(feature_names_cn)):
     )
 
     # --- 5. 按钮区域 ---
-    col1, col2 = st.columns([5, 1])
-    with col1:
+    with st.container():
         if st.button("运行/保存代码", key="run_step1"):
             try:
                 # 保存代码到会话状态
@@ -249,8 +241,6 @@ for i in range(len(feature_names_cn)):
                 save_step_error_context(MODULE_ID, 1, user_code, error_msg, ai_analysis)
 
         render_step_qa_panel(MODULE_ID, 1, user_code)
-    with col2:
-        st.button("↺ 还原", key="reset_s1", on_click=reset_callback)
 
 # 步骤2：特征与目标变量划分
 def step2():
@@ -299,16 +289,8 @@ print("y形状：", y.shape)    # 应是(569,)
         # 优先读硬盘 -> 硬盘没有则读默认骨架
         st.session_state["step2_code"] = saved_data.get("step2_code", code_skeleton)
 
-    # --- 3. 定义重置按钮的回调函数 ---
-    def reset_callback():
-        # 点击按钮时，直接把 session_state 改回默认
-        st.session_state["step2_code"] = code_skeleton
-        # 并立即存盘
-        save_to_disk()
-
     user_code = st.text_area("请补充代码：", code_skeleton, height=230, key="step2_code")
-    col1, col2 = st.columns([5, 1])
-    with col1:
+    with st.container():
         if st.button("运行/保存代码", key="run_step2"):
             try:
                 # 保存代码到会话状态
@@ -349,8 +331,6 @@ print("y形状：", y.shape)    # 应是(569,)
                 save_step_error_context(MODULE_ID, 2, user_code, error_msg, ai_analysis)
 
         render_step_qa_panel(MODULE_ID, 2, user_code)
-    with col2:
-        st.button("↺ 还原", key="reset_s2", on_click=reset_callback)
 
 # 步骤3：数据预处理
 def step3():
@@ -405,18 +385,8 @@ print("测试集样本数：", X_test_scaled.shape[0])
         # 优先读硬盘 -> 硬盘没有则读默认骨架
         st.session_state["step3_code"] = saved_data.get("step3_code", code_skeleton)
 
-    # --- 3. 定义重置按钮的回调函数 ---
-    def reset_callback():
-        # 点击按钮时，直接把 session_state 改回默认
-        st.session_state["step3_code"] = code_skeleton
-        # 并立即存盘
-        save_to_disk()
-
-
-
     user_code = st.text_area("请补充代码：", code_skeleton, height=400, key="step3_code")
-    col1, col2 = st.columns([5, 1])
-    with col1:
+    with st.container():
         if st.button("运行/保存代码", key="run_step3"):
             try:
                 # 保存代码到会话状态
@@ -465,8 +435,6 @@ print("测试集样本数：", X_test_scaled.shape[0])
                 save_step_error_context(MODULE_ID, 3, user_code, error_msg, ai_analysis)
 
         render_step_qa_panel(MODULE_ID, 3, user_code)
-    with col2:
-        st.button("↺ 还原", key="reset_s3", on_click=reset_callback)
 
 # 步骤4：构建逻辑回归模型
 def step4():
@@ -506,19 +474,8 @@ print("模型参数：", model.get_params())
         # 优先读硬盘 -> 硬盘没有则读默认骨架
         st.session_state["step4_code"] = saved_data.get("step4_code", code_skeleton)
 
-    # --- 3. 定义重置按钮的回调函数 ---
-    def reset_callback():
-        # 点击按钮时，直接把 session_state 改回默认
-        st.session_state["step4_code"] = code_skeleton
-        # 并立即存盘
-        save_to_disk()
-
-
-
-
     user_code = st.text_area("请补充代码：", code_skeleton, height=250, key="step4_code")
-    col1, col2 = st.columns([5, 1])
-    with col1:
+    with st.container():
         if st.button("运行/保存代码", key="run_step4"):
             try:
                 # 保存代码到会话状态
@@ -557,8 +514,6 @@ print("模型参数：", model.get_params())
                 save_step_error_context(MODULE_ID, 4, user_code, error_msg, ai_analysis)
 
         render_step_qa_panel(MODULE_ID, 4, user_code)
-    with col2:
-        st.button("↺ 还原", key="reset_s4", on_click=reset_callback)
 
 # 步骤5：模型训练与预测
 def step5():
@@ -607,18 +562,8 @@ print("前10个真实标签：", y_test[:10])
         # 优先读硬盘 -> 硬盘没有则读默认骨架
         st.session_state["step5_code"] = saved_data.get("step5_code", code_skeleton)
 
-    # --- 3. 定义重置按钮的回调函数 ---
-    def reset_callback():
-        # 点击按钮时，直接把 session_state 改回默认
-        st.session_state["step5_code"] = code_skeleton
-        # 并立即存盘
-        save_to_disk()
-
-
-
     user_code = st.text_area("请补充代码：", code_skeleton, height=300, key="step5_code")
-    col1, col2 = st.columns([5, 1])
-    with col1:
+    with st.container():
         if st.button("运行/保存代码", key="run_step5"):
             try:
                 # 保存代码到会话状态
@@ -663,8 +608,6 @@ print("前10个真实标签：", y_test[:10])
                 save_step_error_context(MODULE_ID, 5, user_code, error_msg, ai_analysis)
 
         render_step_qa_panel(MODULE_ID, 5, user_code)
-    with col2:
-        st.button("↺ 还原", key="reset_s5", on_click=reset_callback)
 
 # 步骤6：模型评估
 def step6():
@@ -731,17 +674,8 @@ print("详细分类报告：",report)
         # 优先读硬盘 -> 硬盘没有则读默认骨架
         st.session_state["step6_code"] = saved_data.get("step6_code", code_skeleton)
 
-    # --- 3. 定义重置按钮的回调函数 ---
-    def reset_callback():
-        # 点击按钮时，直接把 session_state 改回默认
-        st.session_state["step6_code"] = code_skeleton
-        # 并立即存盘
-        save_to_disk()
-
-
     user_code = st.text_area("请补充代码：", code_skeleton, height=680, key="step6_code")
-    col1, col2 = st.columns([5, 1])
-    with col1:
+    with st.container():
         if st.button("运行/保存代码", key="run_step6"):
             try:
                 # 保存代码到会话状态
@@ -819,8 +753,6 @@ print("详细分类报告：",report)
                 save_step_error_context(MODULE_ID, 6, user_code, error_msg, ai_analysis)
 
         render_step_qa_panel(MODULE_ID, 6, user_code)
-    with col2:
-        st.button("↺ 还原", key="reset_s6", on_click=reset_callback)
 
 # 步骤7：特征影响力分析
 def step7():
@@ -902,17 +834,8 @@ plt.show()
         # 优先读硬盘 -> 硬盘没有则读默认骨架
         st.session_state["step7_code"] = saved_data.get("step7_code", code_skeleton)
 
-    # --- 3. 定义重置按钮的回调函数 ---
-    def reset_callback():
-        # 点击按钮时，直接把 session_state 改回默认
-        st.session_state["step7_code"] = code_skeleton
-        # 并立即存盘
-        save_to_disk()
-
-
     user_code = st.text_area("请补充代码：", code_skeleton, height=830, key="step7_code")
-    col1, col2 = st.columns([5, 1])
-    with col1:
+    with st.container():
         if st.button("运行/保存代码", key="run_step7"):
 
             try:
@@ -977,8 +900,6 @@ plt.show()
 
         render_step_qa_panel(MODULE_ID, 7, user_code)
 
-    with col2:
-        st.button("↺ 还原", key="reset_s7", on_click=reset_callback)
 # 步骤8：总结与思考
 def step8():
     st.header("步骤8：总结与思考")
