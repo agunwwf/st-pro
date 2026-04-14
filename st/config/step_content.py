@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Optional
 
-from config.step_specs import get_step_spec
+from st.config.step_specs import get_step_spec
 
 
 @dataclass(frozen=True)
@@ -55,6 +55,28 @@ print("特征名称：", feature_names)
 # 计算统计量
 print("目标变量（疾病进展）的均值：", np.mean(y_raw))
 print("第一个特征（年龄）的标准差：", np.std(X_raw[:, 0]))
+            """.strip(),
+        ),
+        2: StepContent(
+            starter_code="""
+# 划分特征（X）和目标变量（y）
+# 说明：本步骤直接复用步骤1中已得到的 X_raw 与 y_raw，不需要重新加载 diabetes 数据集
+X = X_raw    # 特征（10个生理指标）
+y = y_raw    # 目标变量（疾病进展）
+
+# 查看形状
+print("X形状：", X.shape)    # (442, 10)
+print("y形状：", y.shape)    # (442,)
+            """.strip(),
+            reference_code="""
+# 划分特征（X）和目标变量（y）
+# 说明：本步骤直接复用步骤1中已得到的 X_raw 与 y_raw，不需要重新加载 diabetes 数据集
+X = X_raw
+y = y_raw
+
+# 查看形状
+print("X形状：", X.shape)
+print("y形状：", y.shape)
             """.strip(),
         ),
         3: StepContent(

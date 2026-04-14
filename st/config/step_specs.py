@@ -43,7 +43,27 @@ SPECS: Dict[str, Dict[int, StepSpec]] = {
                 MustContainRule(["X_raw[:,0]"], "❌ 第一个特征标准差应使用X_raw[:,0]（提示：[:,0]取第一列）", remove_spaces=True),
             ],
         ),
-        2: StepSpec(success_message="✅ 步骤2通过！特征与目标划分正确", rules=[]),
+        2: StepSpec(
+            success_message="✅ 步骤2通过！特征与目标划分正确",
+            rules=[
+                MustContainRule(
+                    ["X = X_raw"],
+                    "❌ 本步骤请基于步骤1结果，使用 `X = X_raw` 完成特征赋值（不要重新加载数据集）",
+                ),
+                MustContainRule(
+                    ["y = y_raw"],
+                    "❌ 本步骤请基于步骤1结果，使用 `y = y_raw` 完成目标变量赋值（不要改用 `diabetes.target`）",
+                ),
+                MustContainRule(
+                    ["X.shape"],
+                    "❌ 建议输出 `X.shape` 以确认特征矩阵维度",
+                ),
+                MustContainRule(
+                    ["y.shape"],
+                    "❌ 建议输出 `y.shape` 以确认目标变量维度",
+                ),
+            ],
+        ),
         3: StepSpec(
             success_message="✅ 步骤3通过！数据预处理完成",
             rules=[

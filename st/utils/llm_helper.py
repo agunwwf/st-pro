@@ -20,6 +20,36 @@ llm=ChatTongyi(
     )
 
 
+def _invoke_llm_with_stream(messages, stream_placeholder=None) -> str:
+    """
+    Use streaming when available and optionally render incremental text in UI.
+    Falls back to invoke() if stream() is not available or fails.
+    """
+    chunks = []
+    try:
+        for chunk in llm.stream(messages):
+            text = getattr(chunk, "content", "")
+            if not text:
+                continue
+            chunks.append(text)
+            if stream_placeholder is not None:
+                stream_placeholder.markdown("".join(chunks))
+        final_text = "".join(chunks).strip()
+        if final_text:
+            if stream_placeholder is not None:
+                stream_placeholder.empty()
+            return final_text
+    except Exception:
+        # fallback to non-streaming invoke
+        pass
+
+    response = llm.invoke(messages)
+    final_text = response.content if getattr(response, "content", None) else ""
+    if stream_placeholder is not None:
+        stream_placeholder.empty()
+    return final_text
+
+
 def analyze_code(step_num: int, user_code: str, error_msg: str, reference_code: str = "") -> str:
     """
     分析学生代码问题，返回详细的分析和修改建议
@@ -33,20 +63,35 @@ def analyze_code(step_num: int, user_code: str, error_msg: str, reference_code: 
     如果你给出修正代码，请尽量贴近参考答案的结构和命名，避免引入本步骤未涉及的新写法。
     """
 
+    has_unfilled_blank = bool(re.search(r"_{4,}", user_code or ""))
+    blank_scene_hint = ""
+    if has_unfilled_blank:
+        blank_scene_hint = """
+    当前场景补充（非常重要）：
+    - 学生很可能还在思考、还没来得及填完整代码。
+    - 你的职责是“温和引导完成本步骤”，不是强调模板符号本身。
+    - 禁止出现这些表述：横线、占位符、下划线、空格子、________。
+    - 请改用自然表达，例如：先把关键参数补全、先完成这两行核心代码、先把数据集划分与标准化写完整。
+    - 语气要像助教：先共情，再给可执行修正方案。
+    """
+
     system_prompt = f"""
     你是一个Python机器学习教学助手，现在学生在第{step_num}步运行代码出错了。
-    你的目标是让学生“复制你给的代码即可运行成功”。
+    你只负责当前步骤的“错误分析 + 修正引导”，目标是让学生快速理解并完成本步骤。
 
     输出要求（非常重要）：
-    1) 先用 2-4 句中文解释错误原因（简短）
+    1) 先用几句中文解释错误原因（不少于三句）
+       - 先给一句自然、鼓励式开场（例如：这一步思路已经接近正确了，我们把关键代码补全即可）
+       - 不要指责，不要机械报错，不要复述编译器原文
     2) 然后给出【一段】可直接运行的完整修正代码，放在一个 ```python 代码块``` 中
-       - 代码中不要包含任何“________”空
+       - 代码中不要包含任何未填写模板符号
        - 尽量贴近参考答案(reference)的结构/变量名/导入
        - 不要引入本步骤未涉及的新库/新写法
     3) 最后给出 3 条要点提示（用列表即可），例如常见坑/下一步该怎么改
 
-    注意：只针对错误本身分析，不要额外拓展无关内容，语气友好耐心。
+    注意：只针对错误本身分析，不要额外拓展无关内容，语气友好耐心、像真人助教。
     {reference_hint}
+    {blank_scene_hint}
     """
 
     messages = [
@@ -54,8 +99,8 @@ def analyze_code(step_num: int, user_code: str, error_msg: str, reference_code: 
         HumanMessage(content=f"学生代码：\n{user_code}\n错误信息：{error_msg}")
     ]
 
-    response=llm.invoke(messages)
-    return response.content
+    stream_placeholder = st.empty()
+    return _invoke_llm_with_stream(messages, stream_placeholder=stream_placeholder)
 
 # 代码成功时的通用提问解答函数
 def chat_about_success(user_code: str, user_question: str) -> str:
@@ -72,8 +117,7 @@ def chat_about_success(user_code: str, user_question: str) -> str:
         SystemMessage(content=system_prompt),
         HumanMessage(content=context)
     ]
-    response = llm.invoke(messages)
-    return response.content
+    return _invoke_llm_with_stream(messages)
 
 def chat_with_llm(question: str, history_code: str,history_error: str,history_analysis: str) -> str:
     """
@@ -96,8 +140,7 @@ def chat_with_llm(question: str, history_code: str,history_error: str,history_an
         HumanMessage(content=context)
     ]
 
-    response=llm.invoke(messages)
-    return response.content
+    return _invoke_llm_with_stream(messages)
 
 
 def _step_ai_keys(module_id: str, step_num: int) -> dict:
