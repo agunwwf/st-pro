@@ -37,7 +37,6 @@
 import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
-window.axios = request
 
 // 当前登录用户
 let currentUser = null
@@ -145,7 +144,7 @@ async function syncCheckinToServer() {
   if (!(currentUser && currentUser.id)) return
   const count = getYearSuccessCount()
   try {
-    await axios.post('http://localhost:8080/api/user/checkin', { count })
+    await request.post('/api/user/checkin', { count })
   } catch (e) {
     console.error('同步打卡次数失败', e)
   }
@@ -204,7 +203,7 @@ async function handleClickDate(data) {
   if (currentUser && currentUser.id) {
     try {
       const count = getYearSuccessCount()
-      await axios.post('http://localhost:8080/api/user/checkin', { count })
+      await request.post('/api/user/checkin', { count })
     } catch (e) {
       console.error('上报打卡次数失败', e)
     }

@@ -178,7 +178,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useDark, useToggle } from '@vueuse/core'
 import { ArrowLeft, Moon, Sunny, CaretTop, Star, ChatDotRound, Delete, ZoomIn } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import request, { WS_BASE_URL } from '@/utils/request'
 import { sectionLabel, formatPostTime, resolveMediaUrl } from './forumUtils'
 
 const route = useRoute()
@@ -486,7 +486,7 @@ const onStar = async () => {
 }
 
 const setupSocket = () => {
-  socket = new WebSocket('ws://localhost:8080/ws/forum')
+  socket = new WebSocket(`${WS_BASE_URL}/ws/forum`)
   socket.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data)

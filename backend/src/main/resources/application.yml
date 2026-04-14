@@ -7,14 +7,14 @@ spring:
       database: ${REDIS_DB:0}
   ai:
     openai:
-      api-key: ${DEEPSEEK_API_KEY:sk-d29ef99b94bc436f848aa4fadf2cbd17}
+      api-key: ${DEEPSEEK_API_KEY:}
       base-url: https://api.deepseek.com
       chat:
         options:
           model: deepseek-chat
   datasource:
-    url: jdbc:mysql://localhost:3306/apple_admin?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
-    username: root
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:apple_admin}?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: ${DB_USER:root}
     password: ${DB_PASSWORD:123456}
     driver-class-name: com.mysql.cj.jdbc.Driver
   servlet:
@@ -37,7 +37,7 @@ server:
     max-http-form-post-size: 40MB
 
 jwt:
-  secret: asdfgHJHJKL123@#$$%789
+  secret: ${JWT_SECRET:asdfgHJHJKL123@#$$%789}
 
 logging:
   file:

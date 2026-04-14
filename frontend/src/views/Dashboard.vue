@@ -147,7 +147,6 @@ import { useRouter } from 'vue-router'
 import { Timer, Checked, Star, Reading } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
-window.axios = request
 import SkillTreeChart from '@/components/SkillTreeChart.vue';
 const router = useRouter()
 
@@ -238,7 +237,7 @@ async function syncYearCheckinCountToServer() {
   const records = loadCheckinRecords(user.value.id)
   const count = getYearSuccessCount(records)
   try {
-    await axios.post('http://localhost:8080/api/user/checkin', { count })
+    await request.post('/api/user/checkin', { count })
   } catch (e) {
     console.error('同步打卡天数失败', e)
   }
@@ -294,7 +293,7 @@ const loadData = async () => {
 
   // 分开请求，避免一个失败导致全部失败
   try {
-    const threadsRes = await axios.get(`http://localhost:8080/api/thread/list?userId=${user.value.id}`)
+    const threadsRes = await request.get('/api/thread/list', { params: { userId: user.value.id } })
     if (threadsRes.data.code === 200) threadList.value = threadsRes.data.data
   } catch (e) {
     console.error('加载进展列表失败', e)
@@ -304,7 +303,7 @@ const loadData = async () => {
   streakCount.value = getStreakCount(loadCheckinRecords(user.value.id))
 
   try {
-    const todayRes = await axios.get(`http://localhost:8080/api/thread/today?userId=${user.value.id}`)
+    const todayRes = await request.get('/api/thread/today', { params: { userId: user.value.id } })
     if (todayRes.data.code === 200) todayThread.value = todayRes.data.data
   } catch (e) {
     console.error('加载今日进展失败', e)
@@ -343,9 +342,9 @@ const submitUpdate = async () => {
   submitting.value = true
   try {
     const isEdit = !!updateForm.id
-    const url = isEdit ? 'http://localhost:8080/api/thread/update' : 'http://localhost:8080/api/thread/add'
+    const url = isEdit ? '/api/thread/update' : '/api/thread/add'
 
-    const res = await axios.post(url, {
+    const res = await request.post(url, {
       id: updateForm.id,
       userId: user.value.id,
       title: updateForm.title,

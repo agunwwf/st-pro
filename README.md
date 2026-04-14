@@ -1,6 +1,6 @@
 # 项目启动说明
 ## 一、环境要求
-- JDK 17+
+- JDK 21+
 - MySQL 8.0+
 - 无需全局安装 Maven（项目内已集成 Maven Wrapper）
 
@@ -42,7 +42,7 @@ $env:DB_PASSWORD="你的本地数据库密码"
 项目启动时，会自动执行 `src/main/resources/db/mysql_schema.sql` 脚本，完成数据库和表的创建。脚本中已包含 `IF NOT EXISTS`，可安全重复启动。
 
 ### 总结
-1. 启动前需确保本地安装 JDK 17+、MySQL 8.0+（Maven 已内置）；
+1. 启动前需确保本地安装 JDK 21+、MySQL 8.0+（Maven 已内置）；
 2. 进入 `backend` 后使用 `mvnw.cmd` 启动，无需依赖全局 `mvn` 命令；
 3. 本地 MySQL 密码为 123456 可直接启动，非默认密码需先配置 `DB_PASSWORD`；
 4. 如需调用 AI 接口，需配置 `DEEPSEEK_API_KEY`；

@@ -2,6 +2,7 @@ package com.example.admin.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
@@ -11,12 +12,17 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.List;
 
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 
     @Autowired
     private JwtInterceptor jwtInterceptor;
+
+    @Autowired
+    private Environment environment;
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
@@ -44,17 +50,28 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        // 允许前端开发环境访问所有 /api/** 接口和 /uploads/**
+        List<String> allowedOrigins = resolveAllowedOrigins();
+        String[] origins = allowedOrigins.toArray(new String[0]);
+
+        // 允许前端环境访问所有 /api/** 接口和 /uploads/**
         registry.addMapping("/api/**")
-                .allowedOrigins("http://localhost:5173")
+                .allowedOrigins(origins)
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true);
 
         registry.addMapping("/uploads/**")
-                .allowedOrigins("http://localhost:5173")
+                .allowedOrigins(origins)
                 .allowedMethods("GET", "OPTIONS")
                 .allowedHeaders("*");
+    }
+
+    private List<String> resolveAllowedOrigins() {
+        String raw = environment.getProperty("FRONTEND_ORIGINS", "http://localhost:5173");
+        return Arrays.stream(raw.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
     }
 }
 
