@@ -582,11 +582,16 @@ public class TeacherAdminController {
 
         // 用 AI 生成自拟题补齐（生成后写入 sys_question，再加入试卷）
         List<Long> generatedQids = new ArrayList<>();
+        boolean aiInvoked = true;
+        long aiCostMs = 0L;
+        String aiError = null;
         if (needMcq + needFill + needCoding > 0) {
             String assignName = assign.get("publishName") == null ? "" : String.valueOf(assign.get("publishName"));
             String prompt = buildTeacherPaperPrompt(category, assignName, weakList, needMcq, needFill, needCoding);
             try {
+                long aiStart = System.currentTimeMillis();
                 String raw = teacherPaperClient.prompt().user(prompt).call().content();
+                aiCostMs = Math.max(0, System.currentTimeMillis() - aiStart);
                 //bug修复：把json中的```json和```去掉   
                 String clean = raw.replace("```json", "").replace("```", "").trim();
                 JsonNode root = OBJECT_MAPPER.readTree(clean);
@@ -623,8 +628,9 @@ public class TeacherAdminController {
                         }
                     }
                 }
-            } catch (Exception ignored) {
-               
+            } catch (Exception e) {
+                aiError = e.getMessage();
+                return Result.error("AI 出题失败：" + (aiError == null ? "未知错误" : aiError));
             }
         }
 
@@ -654,6 +660,9 @@ public class TeacherAdminController {
         out.put("category", category);
         out.put("pickedFromBank", selectedQids.size());
         out.put("generated", generatedQids.size());
+        out.put("aiInvoked", aiInvoked);
+        out.put("aiCostMs", aiCostMs);
+        out.put("aiSkippedReason", "");
         out.put("weakTop", weakList);
         return Result.success(out);
     }

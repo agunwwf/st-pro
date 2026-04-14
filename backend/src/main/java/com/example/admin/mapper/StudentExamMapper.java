@@ -42,6 +42,10 @@ public interface StudentExamMapper {
             "FROM sys_assignment a JOIN sys_paper p ON a.paper_id = p.id WHERE a.id = #{assignmentId}")
     Map<String, Object> getExamDetail(Long assignmentId);
 
+    @Select("SELECT a.publish_name as publishName, p.title as paperTitle " +
+            "FROM sys_assignment a JOIN sys_paper p ON a.paper_id = p.id WHERE a.id = #{assignmentId}")
+    Map<String, Object> getAssignmentBrief(@Param("assignmentId") Long assignmentId);
+
     // 学生只能查看自己导师下发的考试任务
     @Select("SELECT COUNT(1) FROM sys_assignment a " +
             "JOIN sys_user u ON u.id = #{studentId} " +

@@ -11,10 +11,10 @@
           <a
               v-for="item in navItems"
               :key="item.id"
-              :href="item.route || '#' + item.id"
+              :href="item.route || '#'"
               class="nav-link"
-              :class="{ active: item.route ? (route.path === item.route) : (activeSection === item.id) }"
-              @click.prevent="item.route ? router.push(item.route) : scrollToSection(item.id)"
+              :class="{ active: item.route ? (route.path === item.route) : (activeBoard === item.id) }"
+              @click.prevent="item.route ? router.push(item.route) : (activeBoard = item.id)"
           >
             {{ item.label }}
           </a>
@@ -53,399 +53,48 @@
       </div>
     </header>
 
-    <!-- 内容区域占位 -->
     <main class="forum-main">
-      <section id="section-a" class="forum-section section-a" ref="sectionA">
+      <section class="forum-section section-a">
         <div class="section-a-content">
           <div class="section-header-info">
-            <h2 class="section-display-title">知识分享区域</h2>
-            <p class="section-display-desc">汇聚深度见解，分享实战经验</p>
+            <h2 class="section-display-title">{{ activeBoardMeta.title }}</h2>
+            <p class="section-display-desc">{{ activeBoardMeta.desc }}</p>
           </div>
-          <div class="cards-grid">
-            <!-- 实时展示发布的帖子 -->
-            <div
-              v-for="post in getPostsBySection('knowledge')"
+          <div class="list-feed">
+            <article
+              v-for="post in currentFeedPosts"
               :key="post.id"
-              class="forum-card machine-learning-card"
-              :class="{ 'has-cover': !!post.cover }"
-              :style="cardCoverStyle(post)"
+              class="forum-list-card"
+              @click="openPostDetail(post)"
             >
-              <div class="card-inner card-interactive" @click="openPostDetail(post)">
-                <button
-                  v-if="isPostAuthor(post)"
-                  type="button"
-                  class="post-delete-fab"
-                  title="删除帖子"
-                  @click.stop="confirmDeletePost(post)"
-                >
-                  <el-icon><Delete /></el-icon>
-                </button>
-                <div class="card-header-tags">
-                  <el-tag size="small" effect="light" round class="topic-tag">✨ 知识分享</el-tag>
-                </div>
-                <h3 class="card-title">{{ post.title }}</h3>
-                <div class="card-body">
-                  <p class="card-text">
-                    <span class="author-name">{{ post.authorName || '匿名用户' }}：</span>
-                    {{ post.content.substring(0, 100) }}{{ post.content.length > 100 ? '...' : '' }}
-                    <span class="read-more-link">查看详情 <el-icon><ArrowDown /></el-icon></span>
-                  </p>
-                </div>
-                <div class="card-footer-actions">
-                  <div class="vote-actions">
-                    <div class="vote-btn-group">
-                      <div class="vote-btn up" @click.stop="handleVote(post)">
-                        <el-icon><CaretTop /></el-icon> 赞同 {{ post.votes }}
-                      </div>
-                    </div>
-                  </div>
-                  <div class="social-actions">
-                    <span class="action-item"><el-icon><ChatDotRound /></el-icon> {{ post.comments }}</span>
-                    <span class="action-item" @click.stop="handleStar(post)"><el-icon><Star /></el-icon> {{ post.stars }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 默认模板卡片 (如果没有实时数据则显示) -->
-            <div v-if="postsLoaded && getPostsBySection('knowledge').length === 0" class="forum-card machine-learning-card">
-              <div class="card-inner">
-                <div class="card-header-tags">
-                  <el-tag size="small" effect="light" round class="topic-tag">✨ 机器学习</el-tag>
-                </div>
-                <h3 class="card-title">零基础小白如何开启 AI 奇幻之旅？🤖</h3>
-                <div class="card-body">
-                  <p class="card-text">
-                    <span class="author-name">小智同学：</span>
-                    嘿！想知道那些酷炫的 AI 是怎么工作的吗？其实机器学习就像教小朋友认水果一样简单...
-                    <span class="read-more-link">查看详情 <el-icon><ArrowDown /></el-icon></span>
-                  </p>
-                </div>
-                <div class="card-footer-actions">
-                  <div class="vote-actions">
-                    <div class="vote-btn-group">
-                      <div class="vote-btn up">
-                        <el-icon><CaretTop /></el-icon> 赞同 128
-                      </div>
-                    </div>
-                  </div>
-                  <div class="social-actions">
-                    <span class="action-item"><el-icon><ChatDotRound /></el-icon> 12</span>
-                    <span class="action-item"><el-icon><Star /></el-icon> 56</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- 占位卡片 -->
-            <template v-if="postsLoaded">
-              <div
-                  v-for="i in sectionGridFillCount('knowledge')"
-                  :key="'placeholder-' + i"
-                  class="forum-card"
+              <button
+                v-if="isPostAuthor(post)"
+                type="button"
+                class="post-delete-fab"
+                title="删除帖子"
+                @click.stop="confirmDeletePost(post)"
               >
-                <div class="card-placeholder">CARD {{ i + 1 }}</div>
+                <el-icon><Delete /></el-icon>
+              </button>
+              <div class="list-title">{{ post.title }}</div>
+              <div class="list-meta-row">
+                <el-avatar :size="20" :src="post.authorAvatar || userAvatar" />
+                <span class="author-name">{{ post.authorName || '匿名用户' }}</span>
+                <span class="author-role">{{ boardLabel(post.section) }}</span>
               </div>
-            </template>
-          </div>
-          <div class="view-more-container">
-            <button type="button" class="view-more-btn" @click="goToCreateWithSection('knowledge')">
-              前往发帖 · 知识分享 <el-icon class="arrow-icon"><ArrowRight /></el-icon>
-            </button>
-          </div>
-        </div>
-      </section>
-      <section id="section-b" class="forum-section section-b" ref="sectionB">
-        <div class="section-a-content">
-          <div class="section-header-info">
-            <h2 class="section-display-title">问答区域</h2>
-            <p class="section-display-desc">有问题？来这里寻找答案</p>
-          </div>
-          <div class="cards-grid">
-            <div
-              v-for="post in getPostsBySection('q-a')"
-              :key="post.id"
-              class="forum-card machine-learning-card"
-              :class="{ 'has-cover': !!post.cover }"
-              :style="cardCoverStyle(post)"
-            >
-              <div class="card-inner card-interactive" @click="openPostDetail(post)">
-                <button
-                  v-if="isPostAuthor(post)"
-                  type="button"
-                  class="post-delete-fab"
-                  title="删除帖子"
-                  @click.stop="confirmDeletePost(post)"
-                >
-                  <el-icon><Delete /></el-icon>
-                </button>
-                <div class="card-header-tags">
-                  <el-tag size="small" effect="light" round class="topic-tag">❓ 问答</el-tag>
-                </div>
-                <h3 class="card-title">{{ post.title }}</h3>
-                <div class="card-body">
-                  <p class="card-text">
-                    <span class="author-name">{{ post.authorName || '匿名用户' }}：</span>
-                    {{ post.content.substring(0, 100) }}{{ post.content.length > 100 ? '...' : '' }}
-                    <span class="read-more-link">查看详情 <el-icon><ArrowDown /></el-icon></span>
-                  </p>
-                </div>
-                <div class="card-footer-actions">
-                  <div class="vote-actions">
-                    <div class="vote-btn-group">
-                      <div class="vote-btn up" @click.stop="handleVote(post)">
-                        <el-icon><CaretTop /></el-icon> 赞同 {{ post.votes }}
-                      </div>
-                    </div>
-                  </div>
-                  <div class="social-actions">
-                    <span class="action-item"><el-icon><ChatDotRound /></el-icon> {{ post.comments }}</span>
-                    <span class="action-item" @click.stop="handleStar(post)"><el-icon><Star /></el-icon> {{ post.stars }}</span>
-                  </div>
-                </div>
+              <div class="list-content-row">
+                <p class="list-excerpt">{{ previewText(post.content, 120) }}</p>
+                <img v-if="post.cover" :src="resolveMediaUrl(post.cover)" class="list-cover" alt="" />
               </div>
+              <div class="list-actions">
+                <button class="act-btn primary" @click.stop="handleVote(post)"><el-icon><CaretTop /></el-icon>赞同 {{ post.votes || 0 }}</button>
+                <button class="act-btn"><el-icon><ChatDotRound /></el-icon>{{ post.comments || 0 }} 条评论</button>
+                <button class="act-btn" @click.stop="handleStar(post)"><el-icon><Star /></el-icon>收藏 {{ post.stars || 0 }}</button>
+              </div>
+            </article>
+            <div v-if="postsLoaded && currentFeedPosts.length === 0" class="feed-empty">
+              当前板块暂无帖子，去发第一帖吧。
             </div>
-            <div
-              v-if="postsLoaded && getPostsBySection('q-a').length === 0"
-              class="forum-card machine-learning-card"
-            >
-              <div class="card-inner">
-                <div class="card-header-tags">
-                  <el-tag size="small" effect="light" round class="topic-tag">❓ 问答</el-tag>
-                </div>
-                <h3 class="card-title">监督学习与无监督学习，核心区别是什么？</h3>
-                <div class="card-body">
-                  <p class="card-text">
-                    <span class="author-name">课程助教：</span>
-                    有「标准答案」的数据上训练，是监督学习；只有数据、让模型自己发现簇或规律，多是无监督。选对场景，比死记定义更重要。
-                    <span class="read-more-link">欢迎发帖追问 <el-icon><ArrowDown /></el-icon></span>
-                  </p>
-                </div>
-                <div class="card-footer-actions">
-                  <div class="vote-actions">
-                    <div class="vote-btn-group">
-                      <div class="vote-btn up">
-                        <el-icon><CaretTop /></el-icon> 赞同 96
-                      </div>
-                    </div>
-                  </div>
-                  <div class="social-actions">
-                    <span class="action-item"><el-icon><ChatDotRound /></el-icon> 24</span>
-                    <span class="action-item"><el-icon><Star /></el-icon> 18</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <template v-if="postsLoaded">
-              <div
-                v-for="i in sectionGridFillCount('q-a')"
-                :key="'qa-ph-' + i"
-                class="forum-card"
-              >
-                <div class="card-placeholder">Q&A {{ i }}</div>
-              </div>
-            </template>
-          </div>
-          <div class="view-more-container">
-            <button type="button" class="view-more-btn" @click="goToCreateWithSection('q-a')">
-              去问答区发帖 <el-icon class="arrow-icon"><ArrowRight /></el-icon>
-            </button>
-          </div>
-        </div>
-      </section>
-      <section id="section-c" class="forum-section section-c" ref="sectionC">
-        <div class="section-a-content">
-          <div class="section-header-info">
-            <h2 class="section-display-title">求助区域</h2>
-            <p class="section-display-desc">互帮互助，共同进步</p>
-          </div>
-          <div class="cards-grid">
-            <div
-              v-for="post in getPostsBySection('help')"
-              :key="post.id"
-              class="forum-card machine-learning-card"
-              :class="{ 'has-cover': !!post.cover }"
-              :style="cardCoverStyle(post)"
-            >
-              <div class="card-inner card-interactive" @click="openPostDetail(post)">
-                <button
-                  v-if="isPostAuthor(post)"
-                  type="button"
-                  class="post-delete-fab"
-                  title="删除帖子"
-                  @click.stop="confirmDeletePost(post)"
-                >
-                  <el-icon><Delete /></el-icon>
-                </button>
-                <div class="card-header-tags">
-                  <el-tag size="small" effect="light" round class="topic-tag">🆘 求助</el-tag>
-                </div>
-                <h3 class="card-title">{{ post.title }}</h3>
-                <div class="card-body">
-                  <p class="card-text">
-                    <span class="author-name">{{ post.authorName || '匿名用户' }}：</span>
-                    {{ post.content.substring(0, 100) }}{{ post.content.length > 100 ? '...' : '' }}
-                    <span class="read-more-link">查看详情 <el-icon><ArrowDown /></el-icon></span>
-                  </p>
-                </div>
-                <div class="card-footer-actions">
-                  <div class="vote-actions">
-                    <div class="vote-btn-group">
-                      <div class="vote-btn up" @click.stop="handleVote(post)">
-                        <el-icon><CaretTop /></el-icon> 赞同 {{ post.votes }}
-                      </div>
-                    </div>
-                  </div>
-                  <div class="social-actions">
-                    <span class="action-item"><el-icon><ChatDotRound /></el-icon> {{ post.comments }}</span>
-                    <span class="action-item" @click.stop="handleStar(post)"><el-icon><Star /></el-icon> {{ post.stars }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div
-              v-if="postsLoaded && getPostsBySection('help').length === 0"
-              class="forum-card machine-learning-card"
-            >
-              <div class="card-inner">
-                <div class="card-header-tags">
-                  <el-tag size="small" effect="light" round class="topic-tag">🆘 求助</el-tag>
-                </div>
-                <h3 class="card-title">Spring Boot 启动报数据源错误，该从哪几步排查？</h3>
-                <div class="card-body">
-                  <p class="card-text">
-                    <span class="author-name">互助小编：</span>
-                    先看配置里的 URL / 用户名密码是否与环境一致，再确认 MySQL 是否启动、库名是否存在；把完整报错栈贴出来，大家更容易帮到你。
-                    <span class="read-more-link">发帖附上日志更易解决 <el-icon><ArrowDown /></el-icon></span>
-                  </p>
-                </div>
-                <div class="card-footer-actions">
-                  <div class="vote-actions">
-                    <div class="vote-btn-group">
-                      <div class="vote-btn up">
-                        <el-icon><CaretTop /></el-icon> 赞同 54
-                      </div>
-                    </div>
-                  </div>
-                  <div class="social-actions">
-                    <span class="action-item"><el-icon><ChatDotRound /></el-icon> 31</span>
-                    <span class="action-item"><el-icon><Star /></el-icon> 12</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <template v-if="postsLoaded">
-              <div
-                v-for="i in sectionGridFillCount('help')"
-                :key="'help-ph-' + i"
-                class="forum-card"
-              >
-                <div class="card-placeholder">HELP {{ i }}</div>
-              </div>
-            </template>
-          </div>
-          <div class="view-more-container">
-            <button type="button" class="view-more-btn" @click="goToCreateWithSection('help')">
-              发布求助帖 <el-icon class="arrow-icon"><ArrowRight /></el-icon>
-            </button>
-          </div>
-        </div>
-      </section>
-      <section id="section-d" class="forum-section section-d" ref="sectionD">
-        <div class="section-a-content">
-          <div class="section-header-info">
-            <h2 class="section-display-title">笔记区域</h2>
-            <p class="section-display-desc">记录点滴，沉淀知识</p>
-          </div>
-          <div class="cards-grid">
-            <div
-              v-for="post in getPostsBySection('notes')"
-              :key="post.id"
-              class="forum-card machine-learning-card"
-              :class="{ 'has-cover': !!post.cover }"
-              :style="cardCoverStyle(post)"
-            >
-              <div class="card-inner card-interactive" @click="openPostDetail(post)">
-                <button
-                  v-if="isPostAuthor(post)"
-                  type="button"
-                  class="post-delete-fab"
-                  title="删除帖子"
-                  @click.stop="confirmDeletePost(post)"
-                >
-                  <el-icon><Delete /></el-icon>
-                </button>
-                <div class="card-header-tags">
-                  <el-tag size="small" effect="light" round class="topic-tag">📝 笔记</el-tag>
-                </div>
-                <h3 class="card-title">{{ post.title }}</h3>
-                <div class="card-body">
-                  <p class="card-text">
-                    <span class="author-name">{{ post.authorName || '匿名用户' }}：</span>
-                    {{ post.content.substring(0, 100) }}{{ post.content.length > 100 ? '...' : '' }}
-                    <span class="read-more-link">查看详情 <el-icon><ArrowDown /></el-icon></span>
-                  </p>
-                </div>
-                <div class="card-footer-actions">
-                  <div class="vote-actions">
-                    <div class="vote-btn-group">
-                      <div class="vote-btn up" @click.stop="handleVote(post)">
-                        <el-icon><CaretTop /></el-icon> 赞同 {{ post.votes }}
-                      </div>
-                    </div>
-                  </div>
-                  <div class="social-actions">
-                    <span class="action-item"><el-icon><ChatDotRound /></el-icon> {{ post.comments }}</span>
-                    <span class="action-item" @click.stop="handleStar(post)"><el-icon><Star /></el-icon> {{ post.stars }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div
-              v-if="postsLoaded && getPostsBySection('notes').length === 0"
-              class="forum-card machine-learning-card"
-            >
-              <div class="card-inner">
-                <div class="card-header-tags">
-                  <el-tag size="small" effect="light" round class="topic-tag">📝 笔记</el-tag>
-                </div>
-                <h3 class="card-title">一页纸笔记：梯度下降在优化什么？</h3>
-                <div class="card-body">
-                  <p class="card-text">
-                    <span class="author-name">学习记录：</span>
-                    损失函数像「误差高度」，梯度指向最陡的上坡，我们反着走一小步（学习率），就能慢慢走到更低的误差——这就是迭代更新参数。
-                    <span class="read-more-link">记下你的版本 <el-icon><ArrowDown /></el-icon></span>
-                  </p>
-                </div>
-                <div class="card-footer-actions">
-                  <div class="vote-actions">
-                    <div class="vote-btn-group">
-                      <div class="vote-btn up">
-                        <el-icon><CaretTop /></el-icon> 赞同 72
-                      </div>
-                    </div>
-                  </div>
-                  <div class="social-actions">
-                    <span class="action-item"><el-icon><ChatDotRound /></el-icon> 8</span>
-                    <span class="action-item"><el-icon><Star /></el-icon> 41</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <template v-if="postsLoaded">
-              <div
-                v-for="i in sectionGridFillCount('notes')"
-                :key="'notes-ph-' + i"
-                class="forum-card"
-              >
-                <div class="card-placeholder">NOTE {{ i }}</div>
-              </div>
-            </template>
-          </div>
-          <div class="view-more-container">
-            <button type="button" class="view-more-btn" @click="goToCreateWithSection('notes')">
-              写学习笔记 <el-icon class="arrow-icon"><ArrowRight /></el-icon>
-            </button>
           </div>
         </div>
       </section>
@@ -459,8 +108,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useDark, useToggle } from '@vueuse/core'
 import {
-  Search, Bell, EditPen, Plus, Moon, Sunny, ArrowRight,
-  CaretTop, CaretBottom, ChatDotRound, Star, ArrowDown, CollectionTag, Delete
+  Search, Bell, Plus, Moon, Sunny,
+  CaretTop, ChatDotRound, Star, Delete
 } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 
@@ -472,34 +121,28 @@ const router = useRouter()
 const route = useRoute()
 const scrollContainer = ref(null)
 const isScrolled = ref(false)
-const activeSection = ref('section-a')
+const activeBoard = ref('knowledge')
 
 const isDark = useDark()
 const toggleDark = useToggle(isDark)
 
-/** 有封面时卡片背景为封面图 + 渐变遮罩，保证文字可读 */
-const cardCoverStyle = (post) => {
-  const c = post?.cover
-  if (c == null || !String(c).trim()) return {}
-  const url = resolveMediaUrl(String(c).trim())
-  if (!url) return {}
-  const overlay = isDark.value
-    ? 'linear-gradient(180deg, rgba(10,10,12,0.9) 0%, rgba(10,10,12,0.65) 38%, rgba(10,10,12,0.92) 100%)'
-    : 'linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.68) 35%, rgba(255,255,255,0.93) 100%)'
-  return {
-    backgroundImage: `${overlay}, url(${url})`,
-    backgroundSize: 'cover, cover',
-    backgroundPosition: 'center, center'
+const SECTION_ROUTE_KEYS = ['knowledge', 'q-a', 'notes']
+
+const normalizeSection = (raw) => {
+  const v = String(raw || '').trim().toLowerCase()
+  if (!v) return 'knowledge'
+
+  if (['knowledge', 'section-a', 'share', 'knowledge-share', 'knowledge_sharing', '知识', '知识分享'].includes(v)) {
+    return 'knowledge'
   }
-}
-
-const SECTION_ROUTE_KEYS = ['knowledge', 'q-a', 'help', 'notes']
-
-/** 与知识区一致：补足网格占位（含 1 张示例卡时的槽位） */
-const sectionGridFillCount = (sectionKey) => {
-  const len = getPostsBySection(sectionKey).length
-  if (!postsLoaded.value) return 0
-  return Math.max(0, 15 - Math.max(1, len))
+  if (['q-a', 'qa', 'qna', 'help', 'ask', 'question', '问答', '求助', '问答区域', '求助区域'].includes(v)) {
+    return 'q-a'
+  }
+  if (['notes', 'note', 'section-d', '笔记', '笔记区域'].includes(v)) {
+    return 'notes'
+  }
+  // 历史脏数据兜底到知识区，避免“看不到旧帖子”
+  return 'knowledge'
 }
 
 const goToCreateWithSection = (section) => {
@@ -508,10 +151,9 @@ const goToCreateWithSection = (section) => {
 }
 
 const navItems = [
-  { id: 'section-a', label: '知识分享' },
-  { id: 'section-b', label: '问答区域' },
-  { id: 'section-c', label: '求助区域' },
-  { id: 'section-d', label: '笔记区域' },
+  { id: 'knowledge', label: '知识分享' },
+  { id: 'q-a', label: '问答区域' },
+  { id: 'notes', label: '笔记区域' },
   { id: 'my-records', label: '我的记录', route: '/forum/my' }
 ]
 
@@ -567,16 +209,16 @@ const setupSocket = () => {
 
 // 过滤不同板块的帖子
 const getPostsBySection = (sectionId) => {
-  const sectionMap = {
-    'section-a': 'knowledge',
-    'section-b': 'q-a',
-    'section-c': 'help',
-    'section-d': 'notes'
-  }
-  // 如果传入的是 section-a 这种 ID，则映射到后端标识；如果是 knowledge 这种标识，则直接使用
-  const backendSection = sectionMap[sectionId] || sectionId;
-  return realTimePosts.value.filter(post => post.section === backendSection)
+  const current = normalizeSection(sectionId)
+  return realTimePosts.value.filter(post => normalizeSection(post.section) === current)
 }
+
+const currentFeedPosts = computed(() => getPostsBySection(activeBoard.value))
+const activeBoardMeta = computed(() => {
+  if (activeBoard.value === 'q-a') return { title: '问答区域', desc: '有问题？来这里寻找答案' }
+  if (activeBoard.value === 'notes') return { title: '笔记区域', desc: '记录点滴，沉淀知识' }
+  return { title: '知识分享区域', desc: '汇聚深度见解，分享实战经验' }
+})
 
 // 点赞功能：同一个按钮再点一次就是“取消点赞”
 const handleVote = async (post) => {
@@ -639,12 +281,23 @@ const scrollToTop = () => {
 }
 
 const goToCreatePost = () => {
-  router.push('/forum/create')
+  goToCreateWithSection(activeBoard.value)
+}
+
+const login = () => {
+  router.push('/login')
 }
 
 const openPostDetail = (post) => {
   if (!post?.id) return
-  router.push({ name: 'ForumPostDetail', params: { id: String(post.id) } })
+  router.push({ path: `/forum/post/${post.id}` })
+}
+
+const boardLabel = (section) => {
+  const s = normalizeSection(section)
+  if (s === 'q-a') return '问答区域'
+  if (s === 'notes') return '笔记区域'
+  return '知识分享'
 }
 
 const isPostAuthor = (post) => {
@@ -688,29 +341,19 @@ const confirmDeletePost = async (post) => {
   }
 }
 
-const scrollToSection = (id) => {
-  const element = document.getElementById(id)
-  if (element) {
-    element.scrollIntoView({ behavior: 'smooth' })
-  }
+const stripHtml = (html) => {
+  const div = document.createElement('div')
+  div.innerHTML = String(html || '')
+  return (div.textContent || div.innerText || '').replace(/\s+/g, ' ').trim()
+}
+
+const previewText = (html, n = 100) => {
+  const t = stripHtml(html)
+  return t.length > n ? `${t.slice(0, n)}...` : t
 }
 
 const handleScroll = () => {
-  const scrollY = window.scrollY
-  isScrolled.value = scrollY > 50
-
-  // 简单的滚动监听高亮
-  const sections = ['section-a', 'section-b', 'section-c', 'section-d']
-  for (const id of sections) {
-    const el = document.getElementById(id)
-    if (el) {
-      const rect = el.getBoundingClientRect()
-      if (rect.top <= 150 && rect.bottom >= 150) {
-        activeSection.value = id
-        break
-      }
-    }
-  }
+  isScrolled.value = window.scrollY > 50
 }
 
 const handleCommand = (command) => {
@@ -800,7 +443,6 @@ onUnmounted(() => {
     .section-placeholder { color: #ffffff; }
     .forum-section { border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
     .forum-section.section-b,
-    .forum-section.section-c,
     .forum-section.section-d { background: rgba(255,255,255,0.02); }
   }
 }
@@ -945,7 +587,6 @@ onUnmounted(() => {
 
   &.section-a { background: transparent; }
   &.section-b { background: rgba(0,0,0,0.02); }
-  &.section-c { background: rgba(0,0,0,0.02); }
   &.section-d { background: rgba(0,0,0,0.02); }
 }
 

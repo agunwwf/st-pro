@@ -122,8 +122,15 @@ def isolate_module_session(module_id: str) -> None:
 
 
 def _safe_user_id() -> str:
-    # Prefer the token synced by `sync_user_context()` (key: "_st_token").
-    # Fallback to "global_token" (set by `st/app.py`), and finally "anonymous".
+  
+    profile = st.session_state.get("_user_profile")
+    if isinstance(profile, dict):
+        for field in ("id", "userId", "username", "nickname"):
+            value = profile.get(field)
+            if value is not None and str(value).strip():
+                raw = f"user_{value}"
+                return re.sub(r"[^A-Za-z0-9_.-]", "_", raw)
+
     token = st.session_state.get("_st_token") or st.session_state.get("global_token") or "anonymous"
     token = str(token) if token else "anonymous"
     return re.sub(r"[^A-Za-z0-9_.-]", "_", token)
@@ -181,6 +188,20 @@ def restore_step_progress(module_id: str, base_keys: list[str]) -> None:
     user_data = all_data.get(user_id, {})
     module_data = user_data.get(module_id, {})
 
+    # Backward compatibility:
+    # if we now use stable profile-id key but old data was saved under token key,
+    # try token-keyed records as fallback and migrate them to the stable key.
+    migrated_from_legacy = False
+    if not module_data:
+        legacy_token = st.session_state.get("_st_token") or st.session_state.get("global_token")
+        if legacy_token:
+            legacy_user_id = re.sub(r"[^A-Za-z0-9_.-]", "_", str(legacy_token))
+            legacy_user_data = all_data.get(legacy_user_id, {})
+            legacy_module_data = legacy_user_data.get(module_id, {})
+            if isinstance(legacy_module_data, dict) and legacy_module_data:
+                module_data = legacy_module_data
+                migrated_from_legacy = True
+
     # Fallback: if we can't find progress for the current user,
     # but there is "anonymous" progress, use it.
     # This prevents "refresh = can't restore" when st_token wasn't present at first save.
@@ -200,6 +221,12 @@ def restore_step_progress(module_id: str, base_keys: list[str]) -> None:
     for key, value in module_data.items():
         if key.startswith(ai_prefix):
             st.session_state[key] = _deserialize_value(value)
+
+    if migrated_from_legacy:
+        if user_id not in all_data:
+            all_data[user_id] = {}
+        all_data[user_id][module_id] = module_data
+        _save_all_progress(all_data)
 
     st.session_state[restore_flag] = True
 

@@ -82,12 +82,44 @@
                   <el-button @click="loadRequests">刷新申请列表</el-button>
                 </div>
                 <el-table :data="requests" style="width: 100%" v-loading="loadingRequests">
-                  <el-table-column prop="student_id" label="学生ID" width="120" />
-                  <el-table-column prop="req_type" label="类型" width="120" />
-                  <el-table-column prop="old_teacher_id" label="原导师" width="120" />
-                  <el-table-column prop="new_teacher_id" label="新导师" width="120" />
-                  <el-table-column prop="approve_old" label="原导师同意" width="120" />
-                  <el-table-column prop="approve_new" label="新导师同意" width="120" />
+                  <el-table-column label="学生" min-width="220">
+                    <template #default="scope">
+                      <div class="student-cell">
+                        <el-avatar :size="40" :src="scope.row.student_avatar || 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png'" />
+                        <div class="student-meta">
+                          <span class="student-name">{{ scope.row.student_nickname || scope.row.student_username || `学生#${scope.row.student_id}` }}</span>
+                          <span class="student-id">{{ scope.row.student_username || `ID:${scope.row.student_id}` }}</span>
+                        </div>
+                      </div>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="申请类型" width="120">
+                    <template #default="scope">
+                      <el-tag size="small" :type="scope.row.req_type === 'SWITCH' ? 'warning' : 'primary'">
+                        {{ requestTypeLabel(scope.row.req_type) }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="原导师" min-width="140">
+                    <template #default="scope">{{ teacherName(scope.row.old_teacher_nickname, scope.row.old_teacher_username, scope.row.old_teacher_id) }}</template>
+                  </el-table-column>
+                  <el-table-column label="新导师" min-width="140">
+                    <template #default="scope">{{ teacherName(scope.row.new_teacher_nickname, scope.row.new_teacher_username, scope.row.new_teacher_id) }}</template>
+                  </el-table-column>
+                  <el-table-column label="原导师确认" width="120" align="center">
+                    <template #default="scope">
+                      <el-tag size="small" :type="Number(scope.row.approve_old) === 1 ? 'success' : 'info'">
+                        {{ Number(scope.row.approve_old) === 1 ? '已确认' : '待确认' }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="新导师确认" width="120" align="center">
+                    <template #default="scope">
+                      <el-tag size="small" :type="Number(scope.row.approve_new) === 1 ? 'success' : 'info'">
+                        {{ Number(scope.row.approve_new) === 1 ? '已确认' : '待确认' }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
                   <el-table-column prop="create_time" label="申请时间" min-width="180" />
                   <el-table-column label="操作" width="200" fixed="right">
                     <template #default="scope">
@@ -245,13 +277,13 @@
                 @click="toggleQuestion(q.id)"
               >
                 <div class="wq-header">
-                  <el-tag size="small" :type="getQTypeTag(q.type)">{{ q.type }}</el-tag>
+                  <el-tag size="small" :type="getQTypeTag(q.type)">{{ displayQuestionType(q.type) }}</el-tag>
                   <div class="wq-checkbox">
                     <div class="check-ring"></div>
                   </div>
                 </div>
                 <div class="wq-content">{{ q.content }}</div>
-                <div v-if="q.options && q.type === '选择题'" class="wq-options">
+                <div v-if="q.options && toZhType(q.type) === '选择题'" class="wq-options">
                   <div class="opt-item" v-for="(opt, idx) in parseOptions(q.options)" :key="idx">{{ opt }}</div>
                 </div>
               </div>
@@ -289,15 +321,15 @@
             <div class="preview-q-list" v-if="selectedQuestionDetails.length > 0">
               <div v-for="(q, index) in selectedQuestionDetails" :key="q.id" class="preview-q-item">
                 <div class="pq-header">
-                  <strong>{{ index + 1 }}. ({{ q.type }})</strong> {{ q.content }}
+                  <strong>{{ index + 1 }}. ({{ displayQuestionType(q.type) }})</strong> {{ q.content }}
                 </div>
-                <div v-if="q.options && q.type === '选择题'" class="pq-options">
+                <div v-if="q.options && toZhType(q.type) === '选择题'" class="pq-options">
                   <div v-for="(opt, idx) in parseOptions(q.options)" :key="idx" class="pq-opt">{{ opt }}</div>
                 </div>
-                <div v-if="q.type === '填空题'" class="pq-blank">
+                <div v-if="toZhType(q.type) === '填空题'" class="pq-blank">
                   <el-input disabled placeholder="学生作答区" />
                 </div>
-                <div v-if="q.type === '编程题'" class="pq-coding">
+                <div v-if="toZhType(q.type) === '编程题'" class="pq-coding">
                   <div class="fake-editor"># 请在此处编写 Python 代码...</div>
                 </div>
               </div>
@@ -359,7 +391,7 @@
           <el-divider />
           <div v-for="(q, idx) in paperDetailForm.questions || []" :key="q.id" class="paper-q-block">
             <div class="pq-head">
-              <el-tag size="small" :type="getQTypeTag(q.type)">{{ q.type }}</el-tag>
+              <el-tag size="small" :type="getQTypeTag(q.type)">{{ displayQuestionType(q.type) }}</el-tag>
               <strong>{{ idx + 1 }}.</strong>
               <span v-if="!paperDetailEditing">{{ q.content }}</span>
               <el-input
@@ -371,7 +403,7 @@
                 style="width: 100%"
               />
             </div>
-            <div v-if="q.options && q.type === '选择题'" class="pq-opts">
+            <div v-if="q.options && toZhType(q.type) === '选择题'" class="pq-opts">
               <template v-if="!paperDetailEditing">
                 <div v-for="(opt, oi) in parseOptions(q.options)" :key="oi">{{ opt }}</div>
               </template>
@@ -467,7 +499,7 @@ window.axios = request
 
 const router = useRouter()
 const route = useRoute()
-const currentView = ref('exams') // 默认进入测验页面
+const currentView = ref('students') // 默认进入班级学生页面
 
 // --- 基础工具函数 ---
 const getCurrentTeacherId = () => JSON.parse(localStorage.getItem('user') || '{}').id
@@ -569,6 +601,17 @@ const rejectRequest = async (row) => {
   } else ElMessage.error(res.data.msg || '操作失败')
 }
 
+const requestTypeLabel = (t) => {
+  const x = String(t || '').toUpperCase()
+  if (x === 'BIND') return '加入班级'
+  if (x === 'SWITCH') return '更换导师'
+  return '其他'
+}
+
+const teacherName = (nickname, username, id) => {
+  return nickname || username || (id ? `导师#${id}` : '暂无')
+}
+
 const formatDateTime = (v) => {
   if (!v) return '-'
   const s = String(v).trim()
@@ -617,6 +660,7 @@ const previewMode = ref(false) // 预览模式开关
 const currentQuestionType = ref('ALL') // 题型分类器
 
 const questionBank = ref([])
+const selectedQuestionCache = ref({})
 const questionKeyword = ref('')
 const questionPage = ref(1)
 const questionPageSize = ref(20)
@@ -663,8 +707,17 @@ const loadQuestionPage = async () => {
     })
     if (res.data.code === 200) {
       const data = res.data.data || {}
-      questionBank.value = data.items || []
+      questionBank.value = (data.items || []).map((q) => ({
+        ...q,
+        type: toZhType(q.type)
+      }))
       questionTotal.value = data.total || 0
+      // 刷新当前页已选择题的缓存，保证预览可显示所有已选题
+      for (const q of questionBank.value) {
+        if (paperForm.selectedQuestions.includes(q.id)) {
+          selectedQuestionCache.value[q.id] = q
+        }
+      }
     }
   } catch (e) {
     // 失败时保留旧数据即可
@@ -686,7 +739,12 @@ const loadExamsData = async () => {
 }
 
 onMounted(() => {
-  if (route.query.view === 'students') currentView.value = 'students'
+  const qView = String(route.query.view || '').toLowerCase()
+  const qTab = String(route.query.tab || '').toLowerCase()
+  if (qView === 'exams') currentView.value = 'exams'
+  else currentView.value = 'students'
+  if (qTab === 'assignments') activeExamTab.value = 'assignments'
+  else if (qTab === 'papers') activeExamTab.value = 'papers'
   loadStudents()
   loadRequests()
   loadExamsData()
@@ -697,6 +755,7 @@ const openAssembleWorkshop = () => {
   paperForm.title = ''
   paperForm.selectedQuestions = []
   workshopDraftQuestions.value = []
+  selectedQuestionCache.value = {}
   previewMode.value = false
   currentQuestionType.value = 'ALL'
   questionKeyword.value = ''
@@ -707,7 +766,9 @@ const openAssembleWorkshop = () => {
 }
 
 const findQuestionInWorkshop = (id) =>
-  questionBank.value.find((q) => q.id === id) || workshopDraftQuestions.value.find((q) => q.id === id)
+  selectedQuestionCache.value[id] ||
+  questionBank.value.find((q) => q.id === id) ||
+  workshopDraftQuestions.value.find((q) => q.id === id)
 
 const isQuestionSelected = (id) => paperForm.selectedQuestions.includes(id)
 
@@ -757,12 +818,13 @@ const submitManualQuestion = async () => {
     }
     const q = {
       id,
-      type: row.type || manualQuestionForm.type,
+      type: toZhType(row.type || manualQuestionForm.type),
       content: row.content || content,
       options: typeof row.options === 'string' ? row.options : JSON.stringify(options.length ? options : []),
       standardAnswer: row.standardAnswer != null ? row.standardAnswer : std
     }
     workshopDraftQuestions.value.push(q)
+    selectedQuestionCache.value[id] = q
     if (!paperForm.selectedQuestions.includes(id)) {
       paperForm.selectedQuestions.push(id)
     }
@@ -804,20 +866,34 @@ const toggleQuestion = (id) => {
   const idx = paperForm.selectedQuestions.indexOf(id)
   if (idx > -1) {
     paperForm.selectedQuestions.splice(idx, 1)
+    delete selectedQuestionCache.value[id]
     if (workshopDraftQuestions.value.some((q) => q.id === id)) {
       workshopDraftQuestions.value = workshopDraftQuestions.value.filter((q) => q.id !== id)
     }
   } else {
     paperForm.selectedQuestions.push(id)
+    const q = findQuestionInWorkshop(id)
+    if (q) selectedQuestionCache.value[id] = q
   }
 }
 const parseOptions = (optStr) => {
   if (!optStr) return []
+  if (Array.isArray(optStr)) return optStr
   try { return JSON.parse(optStr) } catch(e) { return [] }
 }
+const toZhType = (type) => {
+  const t = String(type || '').trim().toUpperCase()
+  if (t === 'SINGLE_CHOICE') return '选择题'
+  if (t === 'FILL_BLANK') return '填空题'
+  if (t === 'CODING') return '编程题'
+  if (t === '选择题' || t === '填空题' || t === '编程题') return t
+  return String(type || '')
+}
+const displayQuestionType = (type) => toZhType(type) || '未知题型'
 const getQTypeTag = (type) => {
-  if(type === '选择题') return 'primary'
-  if(type === '填空题') return 'warning'
+  const zh = toZhType(type)
+  if(zh === '选择题') return 'primary'
+  if(zh === '填空题') return 'warning'
   return 'success'
 }
 
@@ -851,6 +927,7 @@ const openPaperDetail = async (paper) => {
       paperDetailForm.title = res.data.data?.paper?.title || ''
       paperDetailForm.questions = (res.data.data?.questions || []).map((q) => ({
         ...q,
+        type: toZhType(q.type),
         optionsList: parseOptions(q.options)
       }))
     }
@@ -873,6 +950,7 @@ const cancelPaperEditMode = () => {
   paperDetailForm.title = paperDetail.value?.paper?.title || ''
   paperDetailForm.questions = (paperDetail.value?.questions || []).map((q) => ({
     ...q,
+    type: toZhType(q.type),
     optionsList: parseOptions(q.options)
   }))
 }
@@ -931,7 +1009,10 @@ const confirmDeletePaper = (paper) => {
 
 const goToExamAnalytics = (item) => {
   if (!item?.id) return
-  router.push(`/teacher/exam-analytics/${item.id}`)
+  router.push({
+    path: `/teacher/exam-analytics/${item.id}`,
+    query: { backView: 'exams', backTab: 'assignments' }
+  })
 }
 
 const confirmDeleteAssignment = (item) => {
@@ -1098,8 +1179,22 @@ const handlePublishExam = async () => {
 .manual-hint { font-size: 12px; color: #86868b; margin: 12px 0 0; line-height: 1.5; }
 
 /* 预览模式样式 */
-.preview-body { justify-content: center; overflow-y: auto; background: #e5e5ea; padding: 40px; }
-.preview-paper-container { background: #fff; width: 800px; min-height: 1000px; padding: 60px 80px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); border-radius: 8px; }
+.preview-body {
+  justify-content: center;
+  align-items: flex-start;
+  overflow-y: auto;
+  background: #e5e5ea;
+  padding: 24px;
+}
+.preview-paper-container {
+  background: #fff;
+  width: min(900px, 100%);
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  padding: 40px 48px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+  border-radius: 8px;
+}
 .preview-title { text-align: center; font-size: 28px; font-weight: bold; margin-bottom: 10px; }
 .preview-meta { text-align: center; color: #86868b; margin-bottom: 30px; }
 .preview-q-item { margin-bottom: 32px; }

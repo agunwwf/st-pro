@@ -5,6 +5,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import re
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
@@ -17,6 +18,7 @@ from utils.progress_store import isolate_module_session, restore_step_progress, 
 from utils.step_validator import validate_step
 from config.step_content import get_reference_code, get_starter_code
 from utils.step_ui import ensure_step_code_defaults, render_reference_answer
+from utils.code_editor_persistence import render_code_editor_with_reset
 from utils.llm_helper import (
     analyze_code,
     save_step_error_context,
@@ -24,6 +26,12 @@ from utils.llm_helper import (
     render_step_qa_panel,
 )  # 回到上一步和进入下一步按钮
 from utils.learning_progress import render_demo_teaching_complete, render_step_teaching_complete
+
+def safe_error_text(err: Exception) -> str:
+    msg = str(err or "")
+    msg = re.sub(r"\s*\([^)]*\)", "", msg)
+    msg = re.sub(r"[A-Za-z]:\\[^'\"]+", "[path hidden]", msg)
+    return msg.strip()
 
 # 设置中文字体
 plt.rcParams['font.sans-serif'] = ['SimHei']
@@ -141,9 +149,16 @@ print(f"新闻主题类别：{newsgroups_train.target_names}")
     else:
         code_skeleton = st.session_state.code_snippets['step1']
 
-    user_code = st.text_area("请补充代码：", code_skeleton, height=850, key="step1_code")
+    user_code, run_clicked = render_code_editor_with_reset(
+        module_id=MODULE_ID,
+        text_area_key="step1_code",
+        default_code=code_skeleton,
+        height=850,
+        run_button_key="run_step1",
+        code_snippet_key="step1",
+    )
 
-    if st.button("运行代码", key="run_step1"):
+    if run_clicked:
         try:
             # 保存代码到会话状态
             st.session_state.code_snippets['step1'] = user_code
@@ -178,7 +193,7 @@ print(f"新闻主题类别：{newsgroups_train.target_names}")
 
         except Exception as e:
             error_msg=str(e)
-            st.error(f"执行错误：{str(e)}")
+            st.error(f"执行错误：{safe_error_text(e)}")
             st.info(f"步骤要求检查：\n{ai_code_checker(1, user_code)}")
 
             # 调用AI生成错误分析
@@ -285,9 +300,16 @@ plt.show()
     else:
         code_skeleton = st.session_state.code_snippets['step2']
 
-    user_code = st.text_area("请补充代码：", code_skeleton, height=1100, key="step2_code")
+    user_code, run_clicked = render_code_editor_with_reset(
+        module_id=MODULE_ID,
+        text_area_key="step2_code",
+        default_code=code_skeleton,
+        height=1100,
+        run_button_key="run_step2",
+        code_snippet_key="step2",
+    )
 
-    if st.button("运行代码", key="run_step2"):
+    if run_clicked:
         try:
             # 保存代码到会话状态
             st.session_state.code_snippets['step2'] = user_code
@@ -354,7 +376,7 @@ plt.show()
 
         except Exception as e:
             error_msg = str(e)
-            st.error(f"执行错误：{str(e)}")
+            st.error(f"执行错误：{safe_error_text(e)}")
             st.info(f"步骤要求检查：\n{ai_code_checker(2, user_code)}")
             with st.spinner("AI正在分析你的错误..."):
                 ai_analysis = analyze_code(
@@ -428,9 +450,16 @@ print(f"前10个关键词示例：{list(tfidf_vectorizer.vocabulary_.keys())[:10
     else:
         code_skeleton = st.session_state.code_snippets['step3']
 
-    user_code = st.text_area("请补充代码：", code_skeleton, height=500, key="step3_code")
+    user_code, run_clicked = render_code_editor_with_reset(
+        module_id=MODULE_ID,
+        text_area_key="step3_code",
+        default_code=code_skeleton,
+        height=500,
+        run_button_key="run_step3",
+        code_snippet_key="step3",
+    )
 
-    if st.button("运行代码", key="run_step3"):
+    if run_clicked:
         try:
             # 保存代码到会话状态
             st.session_state.code_snippets['step3'] = user_code
@@ -464,7 +493,7 @@ print(f"前10个关键词示例：{list(tfidf_vectorizer.vocabulary_.keys())[:10
 
         except Exception as e:
             error_msg = str(e)
-            st.error(f"执行错误：{str(e)}")
+            st.error(f"执行错误：{safe_error_text(e)}")
             st.info(f"步骤要求检查：\n{ai_code_checker(3, user_code)}")
             with st.spinner("AI正在分析你的错误..."):
                 ai_analysis = analyze_code(
@@ -526,9 +555,16 @@ print("模型参数：", model.get_params())
     else:
         code_skeleton = st.session_state.code_snippets['step4']
 
-    user_code = st.text_area("请补充代码：", code_skeleton, height=250, key="step4_code")
+    user_code, run_clicked = render_code_editor_with_reset(
+        module_id=MODULE_ID,
+        text_area_key="step4_code",
+        default_code=code_skeleton,
+        height=250,
+        run_button_key="run_step4",
+        code_snippet_key="step4",
+    )
 
-    if st.button("运行代码", key="run_step4"):
+    if run_clicked:
         try:
             # 保存代码到会话状态
             st.session_state.code_snippets['step4'] = user_code
@@ -552,7 +588,7 @@ print("模型参数：", model.get_params())
 
         except Exception as e:
             error_msg = str(e)
-            st.error(f"执行错误：{str(e)}")
+            st.error(f"执行错误：{safe_error_text(e)}")
             st.info(f"步骤要求检查：\n{ai_code_checker(4, user_code)}")
             with st.spinner("AI正在分析你的错误..."):
                 ai_analysis = analyze_code(
@@ -621,9 +657,16 @@ for class_idx, class_name in enumerate(class_names):
     else:
         code_skeleton = st.session_state.code_snippets['step5']
 
-    user_code = st.text_area("请补充代码：", code_skeleton, height=430, key="step5_code")
+    user_code, run_clicked = render_code_editor_with_reset(
+        module_id=MODULE_ID,
+        text_area_key="step5_code",
+        default_code=code_skeleton,
+        height=430,
+        run_button_key="run_step5",
+        code_snippet_key="step5",
+    )
 
-    if st.button("运行代码", key="run_step5"):
+    if run_clicked:
         try:
             # 保存代码到会话状态
             st.session_state.code_snippets['step5'] = user_code
@@ -659,7 +702,7 @@ for class_idx, class_name in enumerate(class_names):
 
         except Exception as e:
             error_msg = str(e)
-            st.error(f"执行错误：{str(e)}")
+            st.error(f"执行错误：{safe_error_text(e)}")
             st.info(f"步骤要求检查：\n{ai_code_checker(5, user_code)}")
             with st.spinner("AI正在分析你的错误..."):
                 ai_analysis = analyze_code(
@@ -757,9 +800,16 @@ plt.show()
     else:
         code_skeleton = st.session_state.code_snippets['step6']
 
-    user_code = st.text_area("请补充代码：", code_skeleton, height=1050, key="step6_code")
+    user_code, run_clicked = render_code_editor_with_reset(
+        module_id=MODULE_ID,
+        text_area_key="step6_code",
+        default_code=code_skeleton,
+        height=1050,
+        run_button_key="run_step6",
+        code_snippet_key="step6",
+    )
 
-    if st.button("运行代码", key="run_step6"):
+    if run_clicked:
         try:
             # 保存代码到会话状态
             st.session_state.code_snippets['step6'] = user_code
@@ -833,7 +883,7 @@ plt.show()
 
         except Exception as e:
             error_msg = str(e)
-            st.error(f"执行错误：{str(e)}")
+            st.error(f"执行错误：{safe_error_text(e)}")
             st.info(f"步骤要求检查：\n{ai_code_checker(6, user_code)}")
             with st.spinner("AI正在分析你的错误..."):
                 ai_analysis = analyze_code(

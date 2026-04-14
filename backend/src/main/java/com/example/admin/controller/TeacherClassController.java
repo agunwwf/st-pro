@@ -88,21 +88,33 @@ public class TeacherClassController {
 
     @PostMapping("/requests/{id}/reject")
     public Result<Map<String, Object>> reject(HttpServletRequest req, @PathVariable Long id) {
-        if (!isAdmin(req)) return Result.error("未授权访问");
-        Long teacherId = uid(req);
+        try {
+            if (!isAdmin(req)) return Result.error("未授权访问");
+            Long teacherId = uid(req);
+            if (teacherId == null) return Result.error("未授权访问");
 
-        Map<String, Object> row = requestMapper.getById(id);
-        if (row == null) return Result.error("申请不存在");
-        if (!"PENDING".equals(String.valueOf(row.get("status")))) return Result.error("申请已处理");
+            Map<String, Object> row = requestMapper.getById(id);
+            if (row == null) return Result.error("申请不存在");
+            if (!"PENDING".equals(String.valueOf(row.get("status")))) return Result.error("申请已处理");
 
-        Long oldTeacherId = row.get("old_teacher_id") == null ? null : Long.valueOf(row.get("old_teacher_id").toString());
-        Long newTeacherId = row.get("new_teacher_id") == null ? null : Long.valueOf(row.get("new_teacher_id").toString());
-        if (!(teacherId.equals(oldTeacherId) || teacherId.equals(newTeacherId))) return Result.error("无权审批该申请");
+            Long oldTeacherId = row.get("old_teacher_id") == null ? null : Long.valueOf(row.get("old_teacher_id").toString());
+            Long newTeacherId = row.get("new_teacher_id") == null ? null : Long.valueOf(row.get("new_teacher_id").toString());
+            if (!(teacherId.equals(oldTeacherId) || teacherId.equals(newTeacherId))) return Result.error("无权审批该申请");
 
-        requestMapper.reject(id);
-        Map<String, Object> data = new HashMap<>();
-        data.put("ok", true);
-        return Result.success(data);
+            Long studentId = row.get("student_id") == null ? null : Long.valueOf(row.get("student_id").toString());
+            String reqType = row.get("req_type") == null ? "" : String.valueOf(row.get("req_type"));
+            if (studentId != null && newTeacherId != null && !reqType.isBlank()) {
+                // 避免唯一索引 (student_id,new_teacher_id,req_type,status) 在 REJECTED 状态冲突
+                requestMapper.deleteDuplicateRejected(id, studentId, newTeacherId, reqType);
+            }
+            int affected = requestMapper.reject(id);
+            if (affected <= 0) return Result.error("申请状态已变化，请刷新后重试");
+            Map<String, Object> data = new HashMap<>();
+            data.put("ok", true);
+            return Result.success(data);
+        } catch (Exception e) {
+            return Result.error("拒绝失败，请刷新后重试");
+        }
     }
 
     @PostMapping("/students/add")

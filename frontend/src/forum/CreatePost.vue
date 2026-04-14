@@ -10,7 +10,6 @@
         <span class="header-title">写文章</span>
       </div>
       <div class="header-right">
-        <span class="save-status" :class="{ 'is-pending': savePending }">{{ saveStatusText }}</span>
         <el-button class="draft-btn" link @click="openDraftsDrawer">草稿箱</el-button>
         <el-dropdown trigger="click" @command="onMoreMenuCommand">
           <el-icon class="more-icon"><MoreFilled /></el-icon>
@@ -43,13 +42,50 @@
 
         <!-- 正文输入 -->
         <div class="content-wrapper">
-          <el-input
-              v-model="postContent"
-              type="textarea"
-              :autosize="{ minRows: 15 }"
-              placeholder="请输入正文"
-              class="content-input"
-              resize="none"
+          <div id="quill-toolbar" class="rich-toolbar">
+            <span class="ql-formats">
+              <select class="ql-header">
+                <option value="1">H1</option>
+                <option value="2">H2</option>
+                <option selected></option>
+              </select>
+              <select class="ql-size"></select>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-bold"></button>
+              <button class="ql-italic"></button>
+              <button class="ql-underline"></button>
+              <button class="ql-strike"></button>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-blockquote"></button>
+              <button class="ql-code-block"></button>
+              <button class="ql-list" value="ordered"></button>
+              <button class="ql-list" value="bullet"></button>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-link"></button>
+              <button class="ql-image"></button>
+              <button class="ql-video"></button>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-clean"></button>
+            </span>
+          </div>
+          <div ref="editorRef" class="rich-editor quill-editor"></div>
+          <input
+            ref="inlineImageInputRef"
+            type="file"
+            class="cover-file-input"
+            accept="image/jpeg,image/jpg,image/png,.jpg,.jpeg,.png"
+            @change="onInlineImageSelected"
+          />
+          <input
+            ref="inlineVideoInputRef"
+            type="file"
+            class="cover-file-input"
+            accept="video/mp4,video/webm,video/ogg,.mp4,.webm,.ogg"
+            @change="onInlineVideoSelected"
           />
         </div>
 
@@ -62,7 +98,6 @@
             <span class="setting-label">发布板块</span>
             <el-select v-model="postSection" placeholder="请选择发布板块" class="section-select">
               <el-option label="问答区域" value="q-a" />
-              <el-option label="求助区域" value="help" />
               <el-option label="知识分享区域" value="knowledge" />
               <el-option label="笔记区域" value="notes" />
             </el-select>
@@ -125,7 +160,7 @@
     <footer class="editor-footer">
       <div class="footer-content">
         <div class="footer-left">
-          <span class="stat-item">字数：{{ postContent.length }}</span>
+          <span class="stat-item">字数：{{ contentWordCount }}</span>
         </div>
         <div class="footer-right">
           <el-button
@@ -163,7 +198,8 @@
           <span class="preview-section-tag">{{ sectionLabel(postSection) }}</span>
         </div>
         <h1 class="preview-title">{{ postTitle.trim() || '（无标题）' }}</h1>
-        <div class="preview-content">{{ postContent || '（暂无正文）' }}</div>
+        <div class="preview-content" v-if="postContent" v-html="postContent"></div>
+        <div class="preview-content" v-else>（暂无正文）</div>
       </div>
     </el-dialog>
 
@@ -217,7 +253,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
+import { ref, shallowRef, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useDark } from '@vueuse/core'
@@ -229,17 +265,19 @@ import {
 // 引入样式
 import './CreatePost.scss'
 import { resolveMediaUrl } from './forumUtils'
+import Quill from 'quill'
+import 'quill/dist/quill.snow.css'
 
 const route = useRoute()
 const router = useRouter()
 const isDark = useDark()
 
-const SECTION_KEYS = ['knowledge', 'q-a', 'help', 'notes']
+const SECTION_KEYS = ['knowledge', 'q-a', 'notes']
 
 const SECTION_LABELS = {
   knowledge: '知识分享区域',
   'q-a': '问答区域',
-  help: '求助区域',
+  help: '问答区域',
   notes: '笔记区域'
 }
 
@@ -257,42 +295,32 @@ const coverUrl = ref('')
 const publishing = ref(false)
 const titleRef = ref(null)
 const coverFileInputRef = ref(null)
+const editorRef = shallowRef()
+const quillRef = shallowRef(null)
+const inlineImageInputRef = ref(null)
+const inlineVideoInputRef = ref(null)
 const coverUploading = ref(false)
 const coverUploadPercent = ref(0)
 const coverDragOver = ref(false)
 
 const lastSavedAt = ref(null)
 const savePending = ref(false)
-const refreshTick = ref(0)
 const previewVisible = ref(false)
 const historyVisible = ref(false)
 const draftsDrawerVisible = ref(false)
 const historyList = ref([])
 const draftsList = ref([])
 
-let refreshTimer = null
 let autosaveTimer = null
 const AUTOSAVE_MS = 800
 
 const displayCoverUrl = computed(() => resolveMediaUrl(coverUrl.value))
 
+let syncingEditor = false
+
 const sectionLabel = (key) => SECTION_LABELS[key] || key || '未选择板块'
 
 const pad2 = (n) => String(n).padStart(2, '0')
-
-function formatSaveStatus(ts) {
-  if (!ts) return '尚未保存'
-  const diff = Date.now() - ts
-  if (diff < 8_000) return '最近保存 刚刚'
-  if (diff < 60_000) return `最近保存 ${Math.max(1, Math.floor(diff / 1000))} 秒前`
-  if (diff < 3_600_000) return `最近保存 ${Math.floor(diff / 60000)} 分钟前`
-  const then = new Date(ts)
-  const now = new Date()
-  if (then.toDateString() === now.toDateString()) {
-    return `最近保存 今天 ${pad2(then.getHours())}:${pad2(then.getMinutes())}`
-  }
-  return `最近保存 ${then.getMonth() + 1}月${then.getDate()}日 ${pad2(then.getHours())}:${pad2(then.getMinutes())}`
-}
 
 function formatHistoryTime(ts) {
   if (!ts) return ''
@@ -304,12 +332,8 @@ function formatHistoryTime(ts) {
   return `${then.getFullYear()}-${pad2(then.getMonth() + 1)}-${pad2(then.getDate())} ${pad2(then.getHours())}:${pad2(then.getMinutes())}`
 }
 
-const saveStatusText = computed(() => {
-  refreshTick.value
-  return formatSaveStatus(lastSavedAt.value)
-})
-
 const canSaveDraft = computed(() => !!(postTitle.value.trim() || postContent.value.trim()))
+const contentWordCount = computed(() => getPlainText(postContent.value).length)
 
 function readJsonStorage(key, fallback) {
   try {
@@ -398,6 +422,14 @@ watch(
   { flush: 'post' }
 )
 
+watch(
+  postContent,
+  () => {
+    syncEditorFromContent()
+  },
+  { flush: 'post' }
+)
+
 function clearAutosaveAndHistory() {
   localStorage.removeItem(STORAGE_AUTOSAVE)
   localStorage.removeItem(STORAGE_HISTORY)
@@ -421,7 +453,7 @@ function openDraftsDrawer() {
 
 function historySnippet(h) {
   const t = (h.title || '').trim()
-  const c = (h.content || '').replace(/\s+/g, ' ').trim()
+  const c = getPlainText(h.content || '')
   const head = t ? `标题：${t.slice(0, 24)}${t.length > 24 ? '…' : ''}` : ''
   const body = c ? `正文：${c.slice(0, 48)}${c.length > 48 ? '…' : ''}` : ''
   return [head, body].filter(Boolean).join(' · ') || '（空内容）'
@@ -430,10 +462,122 @@ function historySnippet(h) {
 function applyEditorPayload(p) {
   postTitle.value = p.title ?? ''
   postContent.value = p.content ?? ''
-  postSection.value = SECTION_KEYS.includes(p.section) ? p.section : 'knowledge'
+  postSection.value = p.section === 'help' ? 'q-a' : (SECTION_KEYS.includes(p.section) ? p.section : 'knowledge')
   coverUrl.value = p.cover ?? ''
   nextTickResizeTitle()
 }
+function getPlainText(html) {
+  const div = document.createElement('div')
+  div.innerHTML = String(html || '')
+  return (div.textContent || div.innerText || '').replace(/\s+/g, ' ').trim()
+}
+
+const syncEditorFromContent = () => {
+  if (!quillRef.value || syncingEditor) return
+  const current = quillRef.value.root.innerHTML
+  const next = postContent.value || ''
+  if (current === next) return
+  syncingEditor = true
+  quillRef.value.clipboard.dangerouslyPasteHTML(next || '<p><br></p>')
+  syncingEditor = false
+}
+
+const uploadInlineMedia = async (file, type) => {
+  if (!file || !quillRef.value) return
+  const fd = new FormData()
+  fd.append('file', file)
+  const res = await request.post('/api/file/upload', fd)
+  if (res.data?.code !== 200 || !res.data?.data?.url) {
+    throw new Error(res.data?.msg || `${type === 'image' ? '图片' : '视频'}上传失败`)
+  }
+  const url = resolveMediaUrl(res.data.data.url)
+  const range = quillRef.value.getSelection(true)
+  const index = range?.index ?? quillRef.value.getLength()
+  quillRef.value.insertEmbed(index, type, url, 'user')
+  quillRef.value.setSelection(index + 1, 0)
+}
+
+const onInlineImageSelected = async (e) => {
+  const file = e.target?.files?.[0]
+  if (!file) return
+  try {
+    await uploadInlineMedia(file, 'image')
+  } catch (err) {
+    ElMessage.error(err?.message || '图片上传失败')
+  } finally {
+    if (inlineImageInputRef.value) inlineImageInputRef.value.value = ''
+  }
+}
+
+const onInlineVideoSelected = async (e) => {
+  const file = e.target?.files?.[0]
+  if (!file) return
+  try {
+    await uploadInlineMedia(file, 'video')
+  } catch (err) {
+    ElMessage.error(err?.message || '视频上传失败')
+  } finally {
+    if (inlineVideoInputRef.value) inlineVideoInputRef.value.value = ''
+  }
+}
+
+const initQuillEditor = () => {
+  if (!editorRef.value) return
+  quillRef.value = new Quill(editorRef.value, {
+    theme: 'snow',
+    placeholder: '请输入正文（支持图片、视频、标题、列表、引用、代码块）',
+    modules: {
+      toolbar: '#quill-toolbar'
+    }
+  })
+
+  const toolbar = quillRef.value.getModule('toolbar')
+  toolbar.addHandler('image', () => inlineImageInputRef.value?.click())
+  toolbar.addHandler('video', () => inlineVideoInputRef.value?.click())
+
+  const toolbarEl = document.getElementById('quill-toolbar')
+  const localizePicker = (rootSelector, mapping, fallbackText) => {
+    const picker = toolbarEl?.querySelector(rootSelector)
+    if (!picker) return
+    const labelEl = picker.querySelector('.ql-picker-label')
+    const currentVal = labelEl?.getAttribute('data-value') || ''
+    const currentText = mapping[currentVal] || fallbackText
+    if (labelEl && currentText) {
+      labelEl.setAttribute('data-label', currentText)
+    }
+    picker.querySelectorAll('.ql-picker-item').forEach((item) => {
+      const key = item.getAttribute('data-value') || ''
+      const text = mapping[key] || fallbackText
+      item.setAttribute('data-label', text)
+    })
+  }
+
+  localizePicker('.ql-header', { '': '正文', '1': '标题 1', '2': '标题 2' }, '正文')
+  localizePicker('.ql-size', { '': '默认', small: '小', large: '大', huge: '超大' }, '默认')
+
+  const setTitle = (selector, title) => toolbarEl?.querySelector(selector)?.setAttribute('title', title)
+  setTitle('.ql-bold', '加粗')
+  setTitle('.ql-italic', '斜体')
+  setTitle('.ql-underline', '下划线')
+  setTitle('.ql-strike', '删除线')
+  setTitle('.ql-blockquote', '引用')
+  setTitle('.ql-code-block', '代码块')
+  setTitle('.ql-list[value="ordered"]', '有序列表')
+  setTitle('.ql-list[value="bullet"]', '无序列表')
+  setTitle('.ql-link', '插入链接')
+  setTitle('.ql-image', '上传图片')
+  setTitle('.ql-video', '上传视频')
+  setTitle('.ql-clean', '清除格式')
+  toolbarEl?.querySelector('.ql-header')?.setAttribute('title', '标题级别')
+  toolbarEl?.querySelector('.ql-size')?.setAttribute('title', '字号')
+
+  quillRef.value.on('text-change', () => {
+    if (syncingEditor) return
+    postContent.value = quillRef.value.root.innerHTML
+  })
+  syncEditorFromContent()
+}
+
 
 function nextTickResizeTitle() {
   requestAnimationFrame(() => {
@@ -607,7 +751,7 @@ const handlePublish = async () => {
   if (!postTitle.value.trim()) {
     return ElMessage.warning('请输入标题')
   }
-  if (!postContent.value.trim()) {
+  if (!getPlainText(postContent.value).trim()) {
     return ElMessage.warning('请输入正文内容')
   }
   if (!postSection.value) {
@@ -665,20 +809,17 @@ onMounted(() => {
   loadDraftsFromStorage()
   loadHistoryFromStorage()
 
-  refreshTimer = setInterval(() => {
-    refreshTick.value++
-  }, 10_000)
-
   titleRef.value?.focus()
   if (titleRef.value) {
     titleRef.value.style.height = 'auto'
     titleRef.value.style.height = titleRef.value.scrollHeight + 'px'
   }
+  initQuillEditor()
 })
 
 onBeforeUnmount(() => {
-  if (refreshTimer) clearInterval(refreshTimer)
   if (autosaveTimer) clearTimeout(autosaveTimer)
+  if (quillRef.value) quillRef.value.off('text-change')
   persistAutosave()
 })
 </script>

@@ -20,9 +20,17 @@ public interface TeacherStudentRequestMapper {
             "WHERE student_id = #{studentId} AND new_teacher_id = #{newTeacherId} AND req_type = #{reqType} AND status = 'PENDING'")
     int countPending(@Param("studentId") Long studentId, @Param("newTeacherId") Long newTeacherId, @Param("reqType") String reqType);
 
-    @Select("SELECT * FROM sys_teacher_student_request " +
-            "WHERE status = #{status} AND (old_teacher_id = #{teacherId} OR new_teacher_id = #{teacherId}) " +
-            "ORDER BY create_time DESC")
+    @Select("SELECT r.id, r.student_id, r.old_teacher_id, r.new_teacher_id, r.req_type, r.status, r.approve_old, r.approve_new, r.create_time, " +
+            "       s.username AS student_username, s.nickname AS student_nickname, s.avatar AS student_avatar, " +
+            "       oldt.username AS old_teacher_username, oldt.nickname AS old_teacher_nickname, " +
+            "       newt.username AS new_teacher_username, newt.nickname AS new_teacher_nickname " +
+            "FROM sys_teacher_student_request r " +
+            "LEFT JOIN sys_user s ON s.id = r.student_id " +
+            "LEFT JOIN sys_user oldt ON oldt.id = r.old_teacher_id " +
+            "LEFT JOIN sys_user newt ON newt.id = r.new_teacher_id " +
+            "WHERE (#{status} IS NULL OR #{status} = '' OR r.status = #{status}) " +
+            "  AND (r.old_teacher_id = #{teacherId} OR r.new_teacher_id = #{teacherId}) " +
+            "ORDER BY r.create_time DESC")
     List<Map<String, Object>> listForTeacher(@Param("teacherId") Long teacherId, @Param("status") String status);
 
     @Update("UPDATE sys_teacher_student_request " +
@@ -33,6 +41,14 @@ public interface TeacherStudentRequestMapper {
 
     @Update("UPDATE sys_teacher_student_request SET status = 'REJECTED' WHERE id = #{id} AND status = 'PENDING'")
     int reject(@Param("id") Long id);
+
+    @Delete("DELETE FROM sys_teacher_student_request " +
+            "WHERE id <> #{id} AND student_id = #{studentId} AND new_teacher_id = #{newTeacherId} " +
+            "AND req_type = #{reqType} AND status = 'REJECTED'")
+    int deleteDuplicateRejected(@Param("id") Long id,
+                                @Param("studentId") Long studentId,
+                                @Param("newTeacherId") Long newTeacherId,
+                                @Param("reqType") String reqType);
 
     @Update("UPDATE sys_teacher_student_request SET status = 'APPROVED' WHERE id = #{id} AND status = 'PENDING'")
     int markApproved(@Param("id") Long id);

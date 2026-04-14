@@ -4,9 +4,10 @@
     <div class="welcome-section glass-card">
       <div class="welcome-text">
         <h1>{{ greeting }}, {{ user.nickname || user.username }}</h1>
-        <p>今天已在线学习 <strong class="online-time">{{ formatOnlineTime(onlineSeconds) }}</strong>，继续保持！</p>
+        <p v-if="!isTeacher">今天已在线学习 <strong class="online-time">{{ formatOnlineTime(onlineSeconds) }}</strong>，继续保持！</p>
+        <p v-else>今日教学总览与待办提醒如下，建议优先处理临期任务。</p>
       </div>
-      <div class="welcome-stats">
+      <div v-if="!isTeacher" class="welcome-stats">
         <div class="stat-pill">
           <span class="label">连续打卡</span>
           <span class="value">{{ streakCount }} 天</span>
@@ -77,20 +78,23 @@
       </div>
     </div>
     <!-- 底部网格：学习线程 + 快速操作 -->
-    <div class="bottom-grid">
+    <div class="bottom-grid" :class="{ 'teacher-bottom-grid': isTeacher }">
       <div class="learning-thread glass-card">
         <div class="section-header">
-          <h3>学习线程</h3>
-          <el-button
-              type="primary"
-              class="update-btn"
-              @click="handleOpenUpdate"
-          >
-            {{ todayThread ? '修改今日进展' : '+ 更新进展' }}
-          </el-button>
+          <h3>{{ isTeacher ? '教学提醒与待办' : '学习线程' }}</h3>
         </div>
 
-        <div class="thread-timeline">
+        <div v-if="isTeacher" class="teacher-todo-list">
+          <div v-for="(todo, idx) in teacherTodos" :key="idx" class="teacher-todo-item">
+            <div class="teacher-todo-title">{{ todo.title }}</div>
+            <div class="teacher-todo-desc">{{ todo.desc }}</div>
+          </div>
+          <div v-if="teacherTodos.length === 0" class="empty-thread">
+            当前暂无待办提醒，班级状态良好。
+          </div>
+        </div>
+
+        <div v-else class="thread-timeline">
           <div v-for="(item, index) in threadList" :key="index" class="thread-item">
             <div class="thread-line">
               <div class="dot"></div>
@@ -103,12 +107,12 @@
             </div>
           </div>
           <div v-if="threadList.length === 0" class="empty-thread">
-            暂无学习线程，开始记录你的第一步吧！
+            暂无学习动态，完成测验或考试后会自动生成记录。
           </div>
         </div>
       </div>
 
-      <div class="side-column">
+      <div v-if="!isTeacher" class="side-column">
         <!--Tree-->
         <SkillTreeChart />
         <div class="quick-actions glass-card">
@@ -121,31 +125,13 @@
       </div>
     </div>
 
-    <!-- 更新进展弹窗 -->
-    <el-dialog v-model="showUpdateDialog" :title="todayThread ? '修改今日进展' : '更新学习进展'" width="500px" align-center class="apple-dialog">
-      <el-form :model="updateForm" label-position="top" class="update-form">
-        <el-form-item label="进展标题" required>
-          <el-input v-model="updateForm.title" placeholder="例如：网站开发、学术分享" size="large" />
-        </el-form-item>
-        <el-form-item label="详细内容" required>
-          <el-input v-model="updateForm.content" type="textarea" :rows="4" placeholder="描述一下你今天完成了什么..." size="large" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <div class="dialog-footer">
-          <el-button @click="showUpdateDialog = false" round size="large">取消</el-button>
-          <el-button type="primary" @click="submitUpdate" :loading="submitting" round size="large">发布</el-button>
-        </div>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed, reactive } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { Timer, Checked, Star, Reading } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
 window.axios = request
 import SkillTreeChart from '@/components/SkillTreeChart.vue';
@@ -153,16 +139,18 @@ const router = useRouter()
 
 const user = ref({})
 const threadList = ref([])
-const todayThread = ref(null)
 const streakCount = ref(0)
 const onlineSeconds = ref(0)
 // 教学完成统计：来自后端 /api/learning/summary（Streamlit 里点「已完成」后写入 MySQL）
 const learningCompletedTotal = ref(0)
 const completedItems = ref([])
 const learningCompletedMax = ref(10) // 5 个项目 × 演示+分步 各 1 = 10，与后端 MODULES×KINDS 一致
-const showUpdateDialog = ref(false)
-const submitting = ref(false)
-const updateForm = reactive({ id: null, title: '', content: '' })
+const teacherOverview = ref({
+  classStudentCount: 0,
+  weeklyActiveStudents: 0,
+  pendingRequests: 0,
+  activeAssignments: 0
+})
 
 let studyHandler = null
 
@@ -254,27 +242,70 @@ const greeting = computed(() => {
   return '晚上好'
 })
 
+const isTeacher = computed(() => String(user.value.role || '').toUpperCase() === 'ADMIN')
+
 // 四个统计卡片；「已完成教学」的分子分母由下面 loadData 里请求 summary 更新
-const stats = computed(() => [
-  { label: '今日学习', value: formatOnlineTime(onlineSeconds.value), icon: Timer, color: '#0071E3' },
-  {
-    label: '已完成教学',
-    value: `${learningCompletedTotal.value}/${learningCompletedMax.value}`,
-    icon: Checked,
-    color: '#34C759',
-  },
-  user.value.role === 'ADMIN'
-    ? { label: '点击查看', value: '模范学生', icon: Star, color: '#FF9F0A', clickable: true, action: 'goModelStudents' }
-    : { label: '模范学生', value: user.value.isModel ? '是' : '否', icon: Star, color: '#FF9F0A' },
-  { label: '阅读笔记', value: '24', icon: Reading, color: '#AF52DE' }
-])
+const stats = computed(() =>
+  isTeacher.value
+    ? [
+      { label: '班级学生', value: String(teacherOverview.value.classStudentCount), icon: Star, color: '#0071E3', clickable: true, action: 'goModelStudents' },
+      { label: '本周活跃', value: String(teacherOverview.value.weeklyActiveStudents), icon: Timer, color: '#34C759' },
+      { label: '待处理申请', value: String(teacherOverview.value.pendingRequests), icon: Checked, color: '#FF9F0A', clickable: true, action: 'goRequests' },
+      { label: '进行中考试', value: String(teacherOverview.value.activeAssignments), icon: Reading, color: '#AF52DE', clickable: true, action: 'goAssignments' }
+    ]
+    : [
+      { label: '今日学习', value: formatOnlineTime(onlineSeconds.value), icon: Timer, color: '#0071E3' },
+      {
+        label: '已完成教学',
+        value: `${learningCompletedTotal.value}/${learningCompletedMax.value}`,
+        icon: Checked,
+        color: '#34C759',
+      },
+      { label: '模范学生', value: user.value.isModel ? '是' : '否', icon: Star, color: '#FF9F0A' },
+      { label: '阅读笔记', value: '24', icon: Reading, color: '#AF52DE' }
+    ]
+)
 
 const handleStatClick = (stat) => {
   if (!stat?.clickable || !stat?.action) return
   if (stat.action === 'goModelStudents') {
     router.push({ path: '/management', query: { view: 'students' } })
+  } else if (stat.action === 'goRequests') {
+    router.push({ path: '/management', query: { view: 'students' } })
+  } else if (stat.action === 'goAssignments') {
+    router.push({ path: '/management', query: { view: 'exams', tab: 'assignments' } })
   }
 }
+
+const teacherTodos = computed(() => {
+  if (!isTeacher.value) return []
+  const todos = []
+  if (teacherOverview.value.pendingRequests > 0) {
+    todos.push({
+      title: `有 ${teacherOverview.value.pendingRequests} 条入班/换导师申请待处理`,
+      desc: '建议尽快在班级管理中完成审批，避免影响学生参加考试任务。'
+    })
+  }
+  if (teacherOverview.value.activeAssignments > 0) {
+    todos.push({
+      title: `当前有 ${teacherOverview.value.activeAssignments} 场进行中考试任务`,
+      desc: '请关注临近截止的考试，必要时提醒学生按时提交。'
+    })
+  }
+  if (teacherOverview.value.weeklyActiveStudents < Math.max(1, Math.floor(teacherOverview.value.classStudentCount * 0.6))) {
+    todos.push({
+      title: '本周活跃学生占比偏低',
+      desc: '可通过发布针对性练习卷或班级通知提升学习活跃度。'
+    })
+  }
+  if (todos.length === 0) {
+    todos.push({
+      title: '当前教学节奏稳定',
+      desc: '暂无紧急待办，可继续关注考试分析与个性化组卷。'
+    })
+  }
+  return todos
+})
 
 const formatOnlineTime = (seconds) => {
   const h = Math.floor(seconds / 3600)
@@ -293,77 +324,68 @@ const loadData = async () => {
   if (!user.value.id) return
 
   // 分开请求，避免一个失败导致全部失败
-  try {
-    const threadsRes = await axios.get(`http://localhost:8080/api/thread/list?userId=${user.value.id}`)
-    if (threadsRes.data.code === 200) threadList.value = threadsRes.data.data
-  } catch (e) {
-    console.error('加载进展列表失败', e)
+  if (isTeacher.value) {
+    try {
+      const [studentsRes, requestsRes, teacherCalendarRes] = await Promise.all([
+        request.get('/api/teacher/my-students'),
+        request.get('/api/teacher/class/requests', { params: { status: 'PENDING' } }),
+        request.get('/api/thread/calendar/teacher')
+      ])
+
+      const studentRows = studentsRes?.data?.code === 200 ? (studentsRes.data.data || []) : []
+      const requestRows = requestsRes?.data?.code === 200 ? (requestsRes.data.data || []) : []
+      const calendarData = teacherCalendarRes?.data?.code === 200 ? (teacherCalendarRes.data.data || {}) : {}
+      const assignments = calendarData.assignments || []
+      const classActivities = calendarData.classActivities || []
+      const oneWeekAgo = Date.now() - 7 * 24 * 3600 * 1000
+      const weeklyActiveSet = new Set(
+        classActivities
+          .filter(x => {
+            const t = new Date(x.createTime || 0).getTime()
+            return Number.isFinite(t) && t >= oneWeekAgo
+          })
+          .map(x => String(x.userId))
+      )
+      const activeAssignments = assignments.filter(x => {
+        const end = new Date(x.endTime || 0).getTime()
+        return Number.isFinite(end) && end >= Date.now()
+      }).length
+
+      teacherOverview.value = {
+        classStudentCount: studentRows.length,
+        weeklyActiveStudents: weeklyActiveSet.size,
+        pendingRequests: requestRows.length,
+        activeAssignments
+      }
+    } catch (e) {
+      console.error('加载老师仪表盘失败', e)
+    }
+  } else {
+    try {
+      const threadsRes = await request.get('/api/thread/list')
+      if (threadsRes.data.code === 200) threadList.value = threadsRes.data.data
+    } catch (e) {
+      console.error('加载进展列表失败', e)
+    }
   }
 
   // 连续打卡：直接从日历记录计算，确保与日历同步
   streakCount.value = getStreakCount(loadCheckinRecords(user.value.id))
 
-  try {
-    const todayRes = await axios.get(`http://localhost:8080/api/thread/today?userId=${user.value.id}`)
-    if (todayRes.data.code === 200) todayThread.value = todayRes.data.data
-  } catch (e) {
-    console.error('加载今日进展失败', e)
-  }
-
   // request 已带 baseURL 与 token 头；返回 { totalCount, maxCount, items[] }
-  try {
-    const learnRes = await request.get('/api/learning/summary')
-    if (learnRes.data.code === 200 && learnRes.data.data) {
-      learningCompletedTotal.value = learnRes.data.data.totalCount ?? 0
-      learningCompletedMax.value = learnRes.data.data.maxCount ?? 10
+  if (!isTeacher.value) {
+    try {
+      const learnRes = await request.get('/api/learning/summary')
+      if (learnRes.data.code === 200 && learnRes.data.data) {
+        learningCompletedTotal.value = learnRes.data.data.totalCount ?? 0
+        learningCompletedMax.value = learnRes.data.data.maxCount ?? 10
 
-      // 【关键修复】把后端传过来的明细存起来给气泡用！
-      completedItems.value = learnRes.data.data.items || []
+        // 【关键修复】把后端传过来的明细存起来给气泡用！
+        completedItems.value = learnRes.data.data.items || []
+      }
+    } catch (e) {
+      console.error('加载教学完成统计失败', e)
     }
-  } catch (e) {
-    console.error('加载教学完成统计失败', e)
-  }
-}
-
-const handleOpenUpdate = () => {
-  if (todayThread.value) {
-    updateForm.id = todayThread.value.id
-    updateForm.title = todayThread.value.title
-    updateForm.content = todayThread.value.content
-  } else {
-    updateForm.id = null
-    updateForm.title = ''
-    updateForm.content = ''
-  }
-  showUpdateDialog.value = true
-}
-
-const submitUpdate = async () => {
-  if (!updateForm.title || !updateForm.content) return ElMessage.warning('请填写完整内容')
-  submitting.value = true
-  try {
-    const isEdit = !!updateForm.id
-    const url = isEdit ? 'http://localhost:8080/api/thread/update' : 'http://localhost:8080/api/thread/add'
-
-    const res = await axios.post(url, {
-      id: updateForm.id,
-      userId: user.value.id,
-      title: updateForm.title,
-      content: updateForm.content,
-      duration: Math.floor(onlineSeconds.value / 60)
-    })
-
-    if (res.data.code === 200) {
-      ElMessage.success(isEdit ? '进展已修改' : '进展已发布')
-      showUpdateDialog.value = false
-      loadData()
-    } else {
-      ElMessage.error(res.data.msg)
-    }
-  } catch (e) {
-    ElMessage.error('操作失败')
-  } finally {
-    submitting.value = false
   }
 }
 
@@ -424,6 +446,7 @@ onUnmounted(() => {
 .stat-card.clickable:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08); }
 
 .bottom-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 32px; }
+.teacher-bottom-grid { grid-template-columns: 1fr; }
 .learning-thread {
   padding: 40px;
   .section-header {
@@ -453,6 +476,15 @@ onUnmounted(() => {
   }
 }
 .empty-thread { text-align: center; color: #86868b; padding: 60px 0; font-size: 18px; }
+.teacher-todo-list { display: flex; flex-direction: column; gap: 18px; }
+.teacher-todo-item {
+  border: 1px solid #e5e5ea;
+  border-radius: 14px;
+  padding: 18px 20px;
+  background: #fafcff;
+}
+.teacher-todo-title { font-size: 20px; font-weight: 700; color: #1d1d1f; margin-bottom: 8px; }
+.teacher-todo-desc { font-size: 16px; color: #5a5a60; line-height: 1.7; }
 
 .side-column { display: flex; flex-direction: column; gap: 32px; }
 .quick-actions { padding: 40px; h3 { margin: 0 0 32px 0; font-size: 24px; font-weight: 700; } }

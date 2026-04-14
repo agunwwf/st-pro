@@ -1,6 +1,7 @@
 package com.example.admin.controller;
 
 import com.example.admin.mapper.StudentExamMapper;
+import com.example.admin.mapper.LearningThreadMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,8 @@ public class StudentExamController {
 
     @Autowired
     private StudentExamMapper studentExamMapper;
+    @Autowired
+    private LearningThreadMapper learningThreadMapper;
     private Long getUserIdFromToken(HttpServletRequest request) {
         Object userIdObj = request.getAttribute("userId");
         if (userIdObj != null) {
@@ -144,6 +147,23 @@ public class StudentExamController {
 
         Integer score = calcScore(assignmentId, answersJson);
         studentExamMapper.submitExamRecord(assignmentId, studentId, answersJson, score);
+        Map<String, Object> brief = studentExamMapper.getAssignmentBrief(assignmentId);
+        String examName = "教师试卷";
+        if (brief != null) {
+            Object publishName = brief.get("publishName");
+            Object paperTitle = brief.get("paperTitle");
+            if (publishName != null && !String.valueOf(publishName).isBlank()) {
+                examName = String.valueOf(publishName);
+            } else if (paperTitle != null && !String.valueOf(paperTitle).isBlank()) {
+                examName = String.valueOf(paperTitle);
+            }
+        }
+        learningThreadMapper.insertAutoActivity(
+                studentId,
+                "完成教师试卷《" + examName + "》",
+                "完成考试并交卷，得分 " + score + " 分",
+                0
+        );
         return Result.success((Object) null);
     }
 

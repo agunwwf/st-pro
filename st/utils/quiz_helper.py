@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import json
+from utils.learning_progress import submit_learning_complete
 
 # 读取环境变量，默认 localhost
 try:
@@ -113,6 +114,7 @@ def render_quiz_component(module_key: str, title: str, description: str, quiz_da
     state_first_detail = f"{module_key}_first_detail"
     state_practice_mode = f"{module_key}_practice_mode"
     state_practice_score = f"{module_key}_practice_score"
+    state_learning_demo_synced = f"{module_key}_learning_demo_synced"
 
     if state_completed not in st.session_state:
         st.session_state[state_completed] = False
@@ -126,6 +128,8 @@ def render_quiz_component(module_key: str, title: str, description: str, quiz_da
         st.session_state[state_practice_mode] = False
     if state_practice_score not in st.session_state:
         st.session_state[state_practice_score] = None
+    if state_learning_demo_synced not in st.session_state:
+        st.session_state[state_learning_demo_synced] = False
 
     # 进页面先查一下云端是不是已经做过了
     if token and not st.session_state[state_synced]:
@@ -141,6 +145,12 @@ def render_quiz_component(module_key: str, title: str, description: str, quiz_da
                 except Exception:
                     st.session_state[state_first_detail] = []
         st.session_state[state_synced] = True
+
+    # 概念测验完成后自动写入演示教学完成
+    if token and st.session_state[state_completed] and not st.session_state[state_learning_demo_synced]:
+        ok, msg = submit_learning_complete(module_key, "demo")
+        if ok or ("已" in (msg or "") and ("完成" in msg or "同步" in msg or "存在" in msg)):
+            st.session_state[state_learning_demo_synced] = True
 
     # ---------------- 已提交：展示锁定成绩 + 详情 + 可重做练习 ----------------
     if st.session_state[state_completed]:
@@ -222,11 +232,13 @@ def render_quiz_component(module_key: str, title: str, description: str, quiz_da
                         st.session_state[state_first_score] = final_score
                         st.session_state[state_first_detail] = detailed_answers_list
                         st.session_state[state_completed] = True
+                        st.session_state[state_learning_demo_synced] = False
                         st.rerun()
                     else:
                         # 若后端提示重复提交，也进入锁定页并尝试拉取首次成绩详情
                         if "已提交过" in msg:
                             st.session_state[state_completed] = True
+                            st.session_state[state_learning_demo_synced] = False
                             detail = get_score_detail(token, module_key)
                             if detail:
                                 st.session_state[state_first_score] = detail.get("score")

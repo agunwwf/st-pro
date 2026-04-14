@@ -291,7 +291,7 @@ const forceSubmit = async (msg, redirectTo = '/my-exams') => {
       ElMessage.error(res.data.msg || '交卷遇到未知错误')
     }
   } catch (e) {
-    ElMessage.error('网络异常，交卷失败，请重试')
+    ElMessage.error(e?.message || '网络异常，交卷失败，请重试')
     console.error(e)
   } finally {
     loading.value = false

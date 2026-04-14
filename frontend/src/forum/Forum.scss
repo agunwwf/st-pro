@@ -36,6 +36,89 @@
   width: 100%;
 }
 
+.list-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.forum-list-card {
+  background: #fff;
+  border: 1px solid #eef1f6;
+  border-radius: 14px;
+  padding: 18px 18px 14px;
+  cursor: pointer;
+  transition: all .2s ease;
+  position: relative;
+}
+.forum-list-card:hover {
+  box-shadow: 0 10px 24px rgba(16, 24, 40, .08);
+  border-color: #dbe5f2;
+}
+.list-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #1f2937;
+  line-height: 1.35;
+  margin-bottom: 10px;
+}
+.list-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.list-meta-row .author-name { font-size: 14px; font-weight: 700; color: #374151; }
+.list-meta-row .author-role { font-size: 12px; color: #9ca3af; }
+.list-content-row {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.list-excerpt {
+  flex: 1;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.7;
+  color: #4b5563;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.list-cover {
+  width: 180px;
+  height: 105px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid #eef1f6;
+  flex-shrink: 0;
+}
+.list-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+}
+.act-btn {
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  padding: 0;
+  cursor: pointer;
+}
+.act-btn.primary {
+  background: #eff6ff;
+  color: #2563eb;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-weight: 700;
+}
+
 /* 实时帖子卡片样式 */
 .real-post-card {
   background: #ffffff;
@@ -189,6 +272,12 @@
   .cards-grid {
     grid-template-columns: 1fr;
   }
+
+  .list-cover { display: none; }
+
+  .forum-card.machine-learning-card {
+    min-height: 280px;
+  }
 }
 
 .forum-card {
@@ -222,6 +311,8 @@
 
   /* 机器学习卡片 - 可爱且高级风格 */
   &.machine-learning-card {
+    aspect-ratio: auto;
+    min-height: 320px;
     border: 1px solid rgba(0, 0, 0, 0.03);
     padding: 24px;
     display: block; // 取消 flex 居中，使用标准流布局
@@ -250,6 +341,7 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      min-height: 0;
     }
 
     .topic-tag {
@@ -270,10 +362,12 @@
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
+      word-break: break-word;
     }
 
     .card-body {
       flex: 1;
+      min-height: 0;
       .card-text {
         font-size: 16px;
         line-height: 1.6;
@@ -357,6 +451,18 @@
 
 /* 深色模式适配 */
 .dark {
+  .forum-list-card {
+    background: #1f2937;
+    border-color: rgba(255, 255, 255, .1);
+  }
+  .list-title { color: #f9fafb; }
+  .list-meta-row .author-name { color: #e5e7eb; }
+  .list-meta-row .author-role { color: #9ca3af; }
+  .list-excerpt { color: #d1d5db; }
+  .list-cover { border-color: rgba(255,255,255,.14); }
+  .act-btn { color: #cbd5e1; }
+  .act-btn.primary { background: rgba(59,130,246,.2); color: #93c5fd; }
+
   .section-header-info {
     .section-display-title { color: #ffffff; }
     .section-display-desc { color: rgba(255, 255, 255, 0.5); }
@@ -481,12 +587,6 @@
   color: #c2410c !important;
 }
 
-.forum-section.section-c .machine-learning-card .topic-tag {
-  background-color: #fef2f2 !important;
-  border-color: #fecaca !important;
-  color: #b91c1c !important;
-}
-
 .forum-section.section-d .machine-learning-card .topic-tag {
   background-color: #ecfdf5 !important;
   border-color: #a7f3d0 !important;
@@ -497,12 +597,6 @@
   background-color: rgba(234, 88, 12, 0.22) !important;
   border-color: rgba(251, 146, 60, 0.4) !important;
   color: #fdba74 !important;
-}
-
-.dark .forum-section.section-c .machine-learning-card .topic-tag {
-  background-color: rgba(239, 68, 68, 0.2) !important;
-  border-color: rgba(248, 113, 113, 0.35) !important;
-  color: #fca5a5 !important;
 }
 
 .dark .forum-section.section-d .machine-learning-card .topic-tag {

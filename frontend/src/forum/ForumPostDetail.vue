@@ -61,7 +61,7 @@
       </div>
 
       <div class="content-card">
-        <div class="body-text">{{ post.content }}</div>
+        <div class="body-text rich-content" v-html="post.content"></div>
 
         <div class="stats-bar">
           <div
@@ -558,6 +558,17 @@ onUnmounted(() => {
     .body-text {
       color: rgba(245, 245, 247, 0.88);
     }
+    .rich-content :deep(blockquote) {
+      background: rgba(96, 165, 250, 0.18);
+      border-left-color: #60a5fa;
+    }
+    .rich-content :deep(pre) {
+      background: #0b1220;
+      color: #dbeafe;
+    }
+    .rich-content :deep(a) {
+      color: #93c5fd;
+    }
     .stat-chip {
       background: rgba(255, 255, 255, 0.06);
       color: rgba(245, 245, 247, 0.85);
@@ -802,9 +813,43 @@ onUnmounted(() => {
   font-size: 17px;
   line-height: 1.75;
   color: #3a3a3c;
-  white-space: pre-wrap;
   word-break: break-word;
   margin-bottom: 36px;
+}
+
+.rich-content :deep(p) { margin: 0 0 12px; }
+.rich-content :deep(h1),
+.rich-content :deep(h2),
+.rich-content :deep(h3) {
+  margin: 18px 0 12px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+.rich-content :deep(h1) { font-size: 30px; }
+.rich-content :deep(h2) { font-size: 24px; }
+.rich-content :deep(blockquote) {
+  margin: 14px 0;
+  padding: 10px 14px;
+  border-left: 4px solid #409eff;
+  background: rgba(64, 158, 255, 0.08);
+  border-radius: 8px;
+}
+.rich-content :deep(pre) {
+  overflow-x: auto;
+  padding: 12px;
+  border-radius: 10px;
+  background: #111827;
+  color: #e5e7eb;
+}
+.rich-content :deep(img),
+.rich-content :deep(video) {
+  max-width: 100%;
+  border-radius: 10px;
+  margin: 12px 0;
+}
+.rich-content :deep(a) {
+  color: #2563eb;
+  text-decoration: underline;
 }
 
 .stats-bar {

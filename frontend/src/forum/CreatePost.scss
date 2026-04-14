@@ -3,6 +3,7 @@
   min-height: 100vh;
   background-color: #ffffff;
   color: #1d1d1f;
+  font-size: 13px;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
   display: flex;
   flex-direction: column;
@@ -15,7 +16,7 @@
     .create-header {
       background: rgba(0, 0, 0, 0.8);
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      .header-title, .back-btn, .draft-btn, .more-icon, .save-status { color: #f5f5f7; }
+      .header-title, .back-btn, .draft-btn, .more-icon { color: #f5f5f7; }
       .divider { background: rgba(255, 255, 255, 0.2); }
     }
 
@@ -25,10 +26,25 @@
       &::placeholder { color: #86868b; }
     }
 
-    .content-input :deep(.el-textarea__inner) {
-      background: transparent;
+    .rich-editor {
+      background: rgba(255, 255, 255, 0.02);
+      border-color: rgba(255, 255, 255, 0.12);
       color: #f5f5f7;
-      &::placeholder { color: #86868b; }
+    }
+
+    .rich-toolbar :deep(.ql-toolbar.ql-snow) {
+      background: rgba(19, 154, 214, 0.16);
+      border-color: rgba(126, 184, 255, 0.45);
+      color: #7eb8ff;
+    }
+
+    .rich-editor :deep(.ql-toolbar.ql-snow),
+    .rich-editor :deep(.ql-container.ql-snow) {
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .rich-editor :deep(.ql-editor) {
+      color: #f5f5f7;
     }
 
     .editor-footer {
@@ -134,20 +150,15 @@
     align-items: center;
     gap: 28px;
 
-    .save-status {
-      font-size: 20px;
-      color: #86868b;
-    }
-
     .draft-btn {
-      font-size: 20px;
+      font-size: 13px;
       color: #0066cc;
       font-weight: 500;
       &:hover { text-decoration: underline; }
     }
 
     .more-icon {
-      font-size: 22px;
+      font-size: 14px;
       color: #1d1d1f;
       cursor: pointer;
       &:hover { opacity: 0.7; }
@@ -176,7 +187,7 @@
       border: none;
       outline: none;
       resize: none;
-      font-size: 48px;
+      font-size: 40px;
       font-weight: 700;
       line-height: 1.1;
       letter-spacing: -0.02em;
@@ -195,17 +206,91 @@
 
   .content-wrapper {
     margin-bottom: 80px;
-    .content-input {
-      .el-textarea__inner {
-        border: none !important;
-        padding: 0 !important;
-        font-size: 20px !important;
-        line-height: 1.6 !important;
-        color: #1d1d1f !important;
-        box-shadow: none !important;
-        background: transparent !important;
-        &::placeholder { color: #86868b; }
-      }
+    .cover-file-input {
+      position: absolute;
+      width: 0;
+      height: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .rich-toolbar {
+      margin-bottom: 12px;
+    }
+
+    .rich-editor {
+      min-height: 360px;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      background: #fff;
+      padding: 0;
+    }
+
+    .rich-editor :deep(img) {
+      max-width: 100%;
+      border-radius: 8px;
+      margin: 8px 0;
+    }
+
+    .rich-toolbar :deep(.ql-toolbar.ql-snow) {
+      border: 1px solid #d7e2f0;
+      border-radius: 12px;
+      background: #f3f8ff;
+      font-size: 13px;
+    }
+
+    .rich-editor :deep(.ql-container.ql-snow) {
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      margin-top: 8px;
+      overflow: hidden;
+      min-height: 360px;
+    }
+
+    .rich-editor :deep(.ql-editor) {
+      min-height: 360px;
+      font-size: 15px;
+      line-height: 1.7;
+      color: #1d1d1f;
+      padding: 14px;
+      box-sizing: border-box;
+      word-break: break-word;
+    }
+
+    .rich-editor :deep(.ql-editor.ql-blank::before) {
+      font-size: 13px;
+      color: #9ca3af;
+      font-style: normal;
+    }
+
+    /* Quill 下拉项中文化 */
+    .rich-toolbar :deep(.ql-picker.ql-header .ql-picker-label::before),
+    .rich-toolbar :deep(.ql-picker.ql-header .ql-picker-item::before) {
+      content: attr(data-label) !important;
+    }
+    .rich-toolbar :deep(.ql-picker.ql-header .ql-picker-label[data-value="1"]::before),
+    .rich-toolbar :deep(.ql-picker.ql-header .ql-picker-item[data-value="1"]::before) {
+      content: '标题 1' !important;
+    }
+    .rich-toolbar :deep(.ql-picker.ql-header .ql-picker-label[data-value="2"]::before),
+    .rich-toolbar :deep(.ql-picker.ql-header .ql-picker-item[data-value="2"]::before) {
+      content: '标题 2' !important;
+    }
+
+    .rich-toolbar :deep(.ql-picker.ql-size .ql-picker-label::before),
+    .rich-toolbar :deep(.ql-picker.ql-size .ql-picker-item::before) {
+      content: attr(data-label) !important;
+    }
+    .rich-toolbar :deep(.ql-picker.ql-size .ql-picker-label[data-value="small"]::before),
+    .rich-toolbar :deep(.ql-picker.ql-size .ql-picker-item[data-value="small"]::before) {
+      content: '小' !important;
+    }
+    .rich-toolbar :deep(.ql-picker.ql-size .ql-picker-label[data-value="large"]::before),
+    .rich-toolbar :deep(.ql-picker.ql-size .ql-picker-item[data-value="large"]::before) {
+      content: '大' !important;
+    }
+    .rich-toolbar :deep(.ql-picker.ql-size .ql-picker-label[data-value="huge"]::before),
+    .rich-toolbar :deep(.ql-picker.ql-size .ql-picker-item[data-value="huge"]::before) {
+      content: '超大' !important;
     }
   }
 
@@ -224,7 +309,7 @@
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.02);
 
     .settings-title {
-      font-size: 24px;
+      font-size: 16px;
       font-weight: 600;
       color: #1d1d1f;
       margin-bottom: 40px;
@@ -237,7 +322,7 @@
       margin-bottom: 16px;
 
       .setting-label {
-        font-size: 18px;
+        font-size: 13px;
         font-weight: 500;
         color: #1d1d1f;
         width: 100px;
@@ -405,7 +490,7 @@
 
   .footer-left {
     .stat-item {
-      font-size: 16px;
+      font-size: 13px;
       color: #86868b;
     }
   }
@@ -413,23 +498,23 @@
   .footer-save-btn {
     height: 40px;
     padding: 0 28px;
-    border-radius: 6px;
-    font-size: 16px;
+    border-radius: 14px;
+    font-size: 13px;
     font-weight: 500;
-    background-color: #ffffff;
-    border: 1px solid rgba(0, 0, 0, 0.12);
-    color: #86868b;
+    background-color: #eef8ff;
+    border: 1px solid #b9e4ff;
+    color: #139ad6;
     cursor: not-allowed;
     transition: all 0.2s ease;
 
     &.is-enabled {
-      color: #0071e3;
-      border-color: rgba(0, 113, 227, 0.45);
+      color: #139ad6;
+      border-color: #88d3ff;
       cursor: pointer;
 
       &:hover {
-        background-color: rgba(0, 113, 227, 0.06);
-        border-color: #0071e3;
+        background-color: #dff4ff;
+        border-color: #54beff;
       }
     }
   }
@@ -437,45 +522,34 @@
   .footer-publish-btn {
     height: 40px;
     padding: 0 32px;
-    border-radius: 6px;
-    font-size: 24px;
+    border-radius: 14px;
+    font-size: 13px;
     font-weight: 500;
-    background-color: #f5f5f7;
+    background-color: #d9f2ff;
     border: none;
-    color: #d2d2d7;
+    color: #9fcce2;
     cursor: not-allowed;
     transition: all 0.3s ease;
 
     &.is-active {
-      background-color: #0071e3;
+      background-color: #139ad6;
       color: #ffffff;
       cursor: pointer;
 
       &:hover {
-        background-color: #0077ed;
+        background-color: #0f89bf;
       }
     }
 
     &.is-disabled {
-      background-color: #f5f5f7;
-      color: #d2d2d7;
+      background-color: #eaf7ff;
+      color: #b8d9ea;
       cursor: not-allowed;
     }
   }
 }
 
-.more-menu-item {
-  font-size: 18px !important;
-}
-
-.save-status.is-pending {
-  color: #0071e3;
-  opacity: 0.85;
-}
-
-.create-post-container.dark .save-status.is-pending {
-  color: #64b5f6;
-}
+.more-menu-item { font-size: 13px !important; }
 
 .create-post-dialog {
   .dialog-empty {
@@ -519,14 +593,14 @@
 
     .preview-title {
       margin: 0 0 20px;
-      font-size: 28px;
+      font-size: 24px;
       font-weight: 700;
       line-height: 1.25;
       color: #1d1d1f;
     }
 
     .preview-content {
-      font-size: 17px;
+      font-size: 14px;
       line-height: 1.7;
       color: #3d3d3d;
       white-space: pre-wrap;
@@ -575,7 +649,7 @@
   }
 
   .history-time {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: #1d1d1f;
     margin-bottom: 6px;
@@ -619,7 +693,7 @@
   }
 
   .draft-item-title {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
     color: #1d1d1f;
     margin-bottom: 6px;
@@ -639,6 +713,17 @@
     color: #86868b;
     line-height: 1.6;
   }
+}
+
+:deep(.create-post-container .el-button) {
+  font-size: 13px !important;
+}
+
+:deep(.el-dropdown-menu__item),
+:deep(.el-select-dropdown__item),
+:deep(.el-drawer__title),
+:deep(.el-dialog__title) {
+  font-size: 13px !important;
 }
 
 html.dark {

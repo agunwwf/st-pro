@@ -27,6 +27,13 @@ from utils.llm_helper import (
 from utils.learning_progress import render_step_teaching_complete
 import json
 import os
+import re
+
+def safe_error_text(err: Exception) -> str:
+    msg = str(err or "")
+    msg = re.sub(r"\s*\([^)]*\)", "", msg)
+    msg = re.sub(r"[A-Za-z]:\\[^'\"]+", "[path hidden]", msg)
+    return msg.strip()
 
 PROGRESS_FILE = "user_code_progress.json"
 
@@ -234,7 +241,7 @@ for i in range(len(feature_names_cn)):
 
             except Exception as e:
                 error_msg = str(e)
-                st.error(f"执行错误：{str(e)}")
+                st.error(f"执行错误：{safe_error_text(e)}")
                 st.info(f"步骤要求检查：\n{ai_code_checker(1, user_code)}")
 
                 # 调用AI生成错误分析
@@ -334,7 +341,7 @@ print("y形状：", y.shape)    # 应是(569,)
 
             except Exception as e:
                 error_msg = str(e)
-                st.error(f"执行错误：{str(e)}")
+                st.error(f"执行错误：{safe_error_text(e)}")
                 st.info(f"步骤要求检查：\n{ai_code_checker(2, user_code)}")
 
                 # 调用AI生成错误分析
@@ -450,7 +457,7 @@ print("测试集样本数：", X_test_scaled.shape[0])
 
             except Exception as e:
                 error_msg = str(e)
-                st.error(f"执行错误：{str(e)}")
+                st.error(f"执行错误：{safe_error_text(e)}")
                 st.info(f"步骤要求检查：\n{ai_code_checker(3, user_code)}")
 
                 # 调用AI生成错误分析
@@ -542,7 +549,7 @@ print("模型参数：", model.get_params())
 
             except Exception as e:
                 error_msg = str(e)
-                st.error(f"执行错误：{str(e)}")
+                st.error(f"执行错误：{safe_error_text(e)}")
                 st.info(f"步骤要求检查：\n{ai_code_checker(4, user_code)}")
 
                 # 调用AI生成错误分析
@@ -648,7 +655,7 @@ print("前10个真实标签：", y_test[:10])
 
             except Exception as e:
                 error_msg = str(e)
-                st.error(f"执行错误：{str(e)}")
+                st.error(f"执行错误：{safe_error_text(e)}")
                 st.info(f"步骤要求检查：\n{ai_code_checker(5, user_code)}")
 
                 # 调用AI生成错误分析
@@ -804,7 +811,7 @@ print("详细分类报告：",report)
 
             except Exception as e:
                 error_msg = str(e)
-                st.error(f"执行错误：{str(e)}")
+                st.error(f"执行错误：{safe_error_text(e)}")
                 st.info(f"步骤要求检查：\n{ai_code_checker(6, user_code)}")
 
                 # 调用AI生成错误分析
@@ -961,7 +968,7 @@ plt.show()
 
             except Exception as e:
                 error_msg = str(e)
-                st.error(f"执行错误：{str(e)}")
+                st.error(f"执行错误：{safe_error_text(e)}")
                 st.info(f"步骤要求检查：\n{ai_code_checker(7, user_code)}")
 
                 # 调用AI生成错误分析

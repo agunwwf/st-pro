@@ -1,5 +1,5 @@
 <template>
-  <div class="chat-layout glass-card">
+  <div class="chat-layout glass-card" ref="chatLayoutRef">
     <!-- 左侧侧边栏 -->
     <aside class="chat-sidebar" :class="{ collapsed: sidebarMode === 'collapsed' }">
       <div class="sidebar-header">
@@ -210,6 +210,7 @@ const msgArea = ref(null)
 const messages = ref([])
 const friends = ref([])
 const tempContacts = ref([])
+const messageContacts = ref([])
 const activeFriend = ref(null)
 const friendKeyword = ref('')
 const pendingRequests = ref([])
@@ -220,6 +221,7 @@ const profileFriend = ref(null)
 const contextMenuVisible = ref(false)
 const contextMenuPos = ref({ x: 0, y: 0 })
 const contextMenuFriend = ref(null)
+const chatLayoutRef = ref(null)
 let socket = null
 let socketConnecting = false
 let reconnectTimer = null
@@ -230,7 +232,7 @@ const defaultAvatar = 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e5
 const allContacts = computed(() => [...tempContacts.value, ...friends.value])
 const displayedContacts = computed(() => {
   if (sidebarMode.value === 'friends') return friends.value
-  return allContacts.value
+  return messageContacts.value
 })
 
 // 文件上传 Ref
@@ -369,6 +371,7 @@ const loadFriends = async () => {
     const res = await axios.get(`/api/chat/friends?userId=${currentUser.id}`)
     if (res.data.code === 200) {
       friends.value = (res.data.data || []).filter(f => f.friendUsername)
+      await rebuildMessageContacts()
       if (activeFriend.value && !friends.value.some(f => f.friendId === activeFriend.value.friendId)) {
         activeFriend.value = null
         messages.value = []
@@ -376,6 +379,30 @@ const loadFriends = async () => {
     }
   } catch (e) {
     console.error('加载好友失败', e)
+  }
+}
+
+const rebuildMessageContacts = async () => {
+  const contacts = allContacts.value.filter(x => x?.friendUsername)
+  if (!currentUser.username || contacts.length === 0) {
+    messageContacts.value = []
+    return
+  }
+  try {
+    const checks = await Promise.all(
+      contacts.map(async (f) => {
+        try {
+          const res = await axios.get(`/api/chat/messages?user1=${currentUser.username}&user2=${f.friendUsername}`)
+          const hasMessages = res.data?.code === 200 && Array.isArray(res.data.data) && res.data.data.length > 0
+          return hasMessages ? f : null
+        } catch {
+          return null
+        }
+      })
+    )
+    messageContacts.value = checks.filter(Boolean)
+  } catch {
+    messageContacts.value = []
   }
 }
 
@@ -457,6 +484,9 @@ const selectFriend = async (f) => {
     const res = await axios.get(`/api/chat/messages?user1=${currentUser.username}&user2=${f.friendUsername}`)
     if (res.data.code === 200) {
       messages.value = res.data.data
+      if (messages.value.length > 0 && !messageContacts.value.some(x => x.friendUsername === f.friendUsername)) {
+        messageContacts.value = [f, ...messageContacts.value]
+      }
       scrollToBottom()
     }
   } catch (e) {
@@ -481,6 +511,7 @@ const confirmClearMyConversation = async () => {
     })
     if (res.data.code === 200) {
       messages.value = []
+      await rebuildMessageContacts()
       ElMessage.success('已删除你自己的聊天记录')
     } else {
       ElMessage.error(res.data.msg || '删除失败')
@@ -551,6 +582,9 @@ const sendMessage = async (type, content, fileName = null) => {
     fileName: fileName,
     createTime: now
   })
+  if (!messageContacts.value.some(x => x.friendUsername === activeFriend.value.friendUsername)) {
+    messageContacts.value = [activeFriend.value, ...messageContacts.value]
+  }
 
   scrollToBottom()
 }
@@ -570,7 +604,21 @@ const openFriendContextMenu = (e, f) => {
     return
   }
   contextMenuFriend.value = f
-  contextMenuPos.value = { x: e.clientX, y: e.clientY }
+  const rect = chatLayoutRef.value?.getBoundingClientRect?.()
+  const menuWidth = 140
+  const menuHeight = 44
+  if (rect) {
+    const rawX = e.clientX - rect.left
+    const rawY = e.clientY - rect.top
+    const maxX = Math.max(8, rect.width - menuWidth - 8)
+    const maxY = Math.max(8, rect.height - menuHeight - 8)
+    contextMenuPos.value = {
+      x: Math.min(Math.max(8, rawX), maxX),
+      y: Math.min(Math.max(8, rawY), maxY)
+    }
+  } else {
+    contextMenuPos.value = { x: e.clientX, y: e.clientY }
+  }
   contextMenuVisible.value = true
 }
 
@@ -709,6 +757,7 @@ onUnmounted(() => {
   background: #fff;
   font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 16px; /* 基础字号放大 */
+  position: relative;
 }
 
 /* 左侧侧边栏 */
@@ -941,7 +990,7 @@ onUnmounted(() => {
 .action-btns { display: flex; gap: 8px; }
 
 .friend-context-menu {
-  position: fixed;
+  position: absolute;
   z-index: 3000;
   min-width: 130px;
   background: #fff;

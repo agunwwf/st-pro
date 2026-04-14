@@ -143,7 +143,11 @@ const formatDateTime = (v) => {
   return s.length >= 16 ? s.substring(0, 16) : s
 }
 
-const goBack = () => router.push('/management')
+const goBack = () => {
+  const backView = route.query.backView || 'exams'
+  const backTab = route.query.backTab || 'assignments'
+  router.push({ path: '/management', query: { view: backView, tab: backTab } })
+}
 const openReview = (row) => {
   if (!row?.studentId) return
   router.push(`/teacher/exam-review/${route.params.id}/${row.studentId}`)

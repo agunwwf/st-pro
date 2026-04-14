@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { FileSignature, CodeXml, Target, ListChecks, History, Award, CheckCircle2, XCircle, Sparkles, TrendingUp, Cpu } from 'lucide-vue-next'
+import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
 
 const currentStatus = ref('idle') // idle | loading | testing | grading | review
@@ -53,11 +54,10 @@ const generateNewPaper = async (moduleId, moduleName) => {
     if (res.data.code !== 200 || !res.data.data?.id) throw new Error(res.data.msg || '创建失败')
     historyVisible.value = true
     await loadHistory()
-    alert(`【${moduleName}】出题任务已创建，后台将继续生成。离开页面也不会中断。`)
     currentStatus.value = 'idle'
   } catch (e) {
     console.error(e)
-    alert('出题失败，请稍后重试')
+    ElMessage.error('出题失败，请稍后重试')
     currentStatus.value = 'idle'
   }
 }
@@ -87,7 +87,7 @@ const openPaper = async (paper) => {
       })
       isCorrectMap.value.coding = !!(userAnswers.value.coding || '').trim()
       currentStatus.value = 'review'
-    } else {
+      } else {
       userAnswers.value = createAnswerDraft(parsed)
       currentStatus.value = 'testing'
     }
@@ -224,7 +224,7 @@ const backToHome = () => {
       <div v-else-if="currentStatus === 'loading' || currentStatus === 'grading'" class="state-view loading-view">
         <div class="loader"></div>
         <p class="loading-text">{{ loadingText }}</p>
-      </div>
+    </div>
 
       <div v-else class="paper-view">
         <header class="paper-header">
@@ -247,7 +247,7 @@ const backToHome = () => {
                   <XCircle v-else class="icon-wrong" :size="18"/>
                 </div>
               </div>
-              <div class="options-list">
+        <div class="options-list">
                 <label v-for="opt in q.options" :key="opt" :class="['option-label', userAnswers.mcq[q.id] === opt[0] ? 'is-selected' : '', currentStatus === 'review' && opt[0] === q.answer ? 'is-correct' : '', currentStatus === 'review' && userAnswers.mcq[q.id] === opt[0] && opt[0] !== q.answer ? 'is-wrong' : '']">
                   <input type="radio" :name="q.id" :value="opt[0]" v-model="userAnswers.mcq[q.id]" :disabled="currentStatus === 'review'"/>
                   <span class="opt-text">{{ opt }}</span>

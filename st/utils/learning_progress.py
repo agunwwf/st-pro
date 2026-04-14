@@ -57,22 +57,9 @@ def submit_learning_complete(module_id: str, kind: str) -> tuple[bool, str]:
 
 def render_demo_teaching_complete(api_module_id: str) -> None:
     """
-    插在「演示模式」侧栏：用户学完导览各章节后手动确认。
-    注意：进入「编程实例 / 分步」时，各 demo 通常不调用本函数，避免与分步侧栏 UI 冲突。
+    演示教学完成改为在概念测验提交后自动同步（见 quiz_helper.py）。
     """
-    st.sidebar.markdown("---")
-    st.sidebar.caption("学习进度")
-    # key 必须全局唯一，否则多项目切换时 Streamlit 会报 DuplicateWidgetID
-    if st.sidebar.button(
-        "我已完成本项目的演示教学",
-        key=f"learning_demo_done_{api_module_id}",
-        use_container_width=True,
-    ):
-        ok, msg = submit_learning_complete(api_module_id, "demo")
-        if ok:
-            st.sidebar.success(msg)
-        else:
-            st.sidebar.error(msg)
+    return
 
 
 def render_step_teaching_complete(api_module_id: str) -> None:

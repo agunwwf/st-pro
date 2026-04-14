@@ -85,7 +85,8 @@ public interface TeacherAdminMapper {
             "VALUES(#{teacherId}, #{paperId}, #{publishName}, #{startTime}, #{endTime}, #{timeLimitMinutes})")
     void insertAssignment(Map<String, Object> assignment);
 
-    @Select("SELECT a.id, a.publish_name as publishName, a.start_time as startTime, a.end_time as endTime, a.time_limit_minutes as timeLimitMinutes, p.title as paperTitle " +
+    @Select("SELECT a.id, a.publish_name as publishName, a.start_time as startTime, a.end_time as endTime, a.time_limit_minutes as timeLimitMinutes, p.title as paperTitle, " +
+            "(SELECT COUNT(1) FROM sys_student_record r WHERE r.assignment_id = a.id AND r.status >= 1) as submittedCount " +
             "FROM sys_assignment a LEFT JOIN sys_paper p ON a.paper_id = p.id " +
             "WHERE a.teacher_id = #{teacherId} ORDER BY a.create_time DESC")
     List<Map<String, Object>> listMyAssignments(Long teacherId);

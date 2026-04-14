@@ -1,10 +1,13 @@
 package com.example.admin.controller;
 
 import com.example.admin.entity.SysQuizScore;
+import com.example.admin.mapper.LearningThreadMapper;
 import com.example.admin.mapper.ScoreMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/score")
@@ -12,6 +15,8 @@ public class ScoreController {
 
     @Autowired
     private ScoreMapper scoreMapper;
+    @Autowired
+    private LearningThreadMapper learningThreadMapper;
 
     // 1. ST 页面一加载，就会调这个接口看通道要不要锁定
     @GetMapping("/check")
@@ -27,6 +32,10 @@ public class ScoreController {
         score.setUserId(userId); // 强制绑定当前登录用户的 ID，防止越权
         try {
             scoreMapper.insertScore(score);
+            String moduleName = moduleName(score.getModuleId());
+            String title = "完成" + moduleName + "教学项目";
+            String content = "完成概念测验，得分 " + score.getScore() + " 分";
+            learningThreadMapper.insertAutoActivity(userId, title, content, 0);
             return Result.success("成绩已成功存档");
         } catch (DuplicateKeyException e) {
             // 如果学生试图抓包绕过前端重复提交，触发了数据库的 UNIQUE KEY，就会被这里无情拦截
@@ -34,6 +43,17 @@ public class ScoreController {
         } catch (Exception e) {
             return Result.error("存档失败，服务器内部错误");
         }
+    }
+
+    private String moduleName(String moduleId) {
+        if (moduleId == null) return "学习";
+        return Map.of(
+                "kmeans", "KMeans",
+                "linear", "线性回归",
+                "logistic", "逻辑回归",
+                "neural", "神经网络",
+                "text", "文本分类"
+        ).getOrDefault(moduleId.trim().toLowerCase(), moduleId);
     }
 
     // 3. ST 锁定后读取首提成绩与答题详情（用于展示“成绩 + 标准答案 + 你的答案 + 解析”）
