@@ -309,7 +309,7 @@ print("y形状：", y.shape)    # 应是(442,)
             ai_feedback = ai_code_checker(2, user_code)
             st.info(f"AI提示：{ai_feedback}")
 
-            st.session_state.code_snippets[2] = user_code
+            st.session_state.code_snippets['step2'] = user_code
             if "✅" in ai_feedback:
                 st.session_state.completed_steps.add(2)  # 标记步骤2完成
                 st.button("进入步骤3：数据预处理",
@@ -439,7 +439,7 @@ print("测试集特征形状：", X_test_scaled.shape)
             ai_feedback = ai_code_checker(3, user_code)
             st.info(f"AI提示：{ai_feedback}")
 
-            st.session_state.code_snippets[3] = user_code
+            st.session_state.code_snippets['step3'] = user_code
             if "✅" in ai_feedback:
                 st.session_state.completed_steps.add(3)  # 标记步骤3完成
                 st.button("进入步骤4：构建线性回归模型",
@@ -536,7 +536,7 @@ print("模型参数：", model._______)
             ai_feedback = ai_code_checker(4, user_code)
             st.info(f"AI提示：{ai_feedback}")
 
-            st.session_state.code_snippets[4] = user_code
+            st.session_state.code_snippets['step4'] = user_code
             if "✅" in ai_feedback:
                 st.session_state.completed_steps.add(4)
                 st.button("进入步骤5：模型训练与预测",
@@ -645,7 +645,7 @@ print("前5个实际值：", y_test[:5])
             ai_feedback = ai_code_checker(5, user_code)
             st.info(f"AI提示：{ai_feedback}")
 
-            st.session_state.code_snippets[5] = user_code
+            st.session_state.code_snippets['step5'] = user_code
             if "✅" in ai_feedback:
                 st.session_state.completed_steps.add(5)  # 标记步骤5完成
                 st.button("进入步骤6：模型评估",
@@ -756,7 +756,7 @@ print(f"决定系数（R²）：{r2:.2f}")
             ai_feedback = ai_code_checker(6, user_code)
             st.info(f"AI提示：{ai_feedback}")
 
-            st.session_state.code_snippets[6] = user_code
+            st.session_state.code_snippets['step6'] = user_code
             if "✅" in ai_feedback:
                 st.session_state.completed_steps.add(6)  # 标记步骤6完成
                 st.subheader("恭喜！已用numpy完成糖尿病数据集的线性回归全流程")

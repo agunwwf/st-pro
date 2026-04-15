@@ -226,7 +226,7 @@ async function syncYearCheckinCountToServer() {
   const records = loadCheckinRecords(user.value.id)
   const count = getYearSuccessCount(records)
   try {
-    await axios.post('http://localhost:8080/api/user/checkin', { count })
+    await request.post('/api/user/checkin', { count })
   } catch (e) {
     console.error('同步打卡天数失败', e)
   }
@@ -371,6 +371,13 @@ const loadData = async () => {
 
   // 连续打卡：直接从日历记录计算，确保与日历同步
   streakCount.value = getStreakCount(loadCheckinRecords(user.value.id))
+
+  try {
+    const todayRes = await axios.get(`http://localhost:8080/api/thread/today?userId=${user.value.id}`)
+    if (todayRes.data.code === 200) todayThread.value = todayRes.data.data
+  } catch (e) {
+    console.error('加载今日进展失败', e)
+  }
 
   // request 已带 baseURL 与 token 头；返回 { totalCount, maxCount, items[] }
   if (!isTeacher.value) {

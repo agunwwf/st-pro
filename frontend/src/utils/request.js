@@ -1,8 +1,13 @@
 import axios from 'axios'
 
+const runtimeOrigin = typeof window !== 'undefined' ? window.location.origin : ''
+const configuredApiBase = String(import.meta.env.VITE_API_BASE || runtimeOrigin).replace(/\/$/, '')
+const configuredWsBase = String(
+    import.meta.env.VITE_WS_BASE || configuredApiBase.replace(/^http/i, 'ws')
+).replace(/\/$/, '')
+
 const request = axios.create({
-    baseURL: 'http://localhost:8080',
-    timeout: 15000
+    baseURL: configuredApiBase
 })
 
 request.interceptors.request.use(config => {
@@ -28,4 +33,6 @@ request.interceptors.response.use(
     }
 )
 
+export const API_BASE_URL = configuredApiBase
+export const WS_BASE_URL = configuredWsBase
 export default request

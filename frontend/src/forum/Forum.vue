@@ -111,7 +111,7 @@ import {
   Search, Bell, Plus, Moon, Sunny,
   CaretTop, ChatDotRound, Star, Delete
 } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import request, { WS_BASE_URL } from '@/utils/request'
 
 // 引入外部样式
 import './Forum.scss'
@@ -189,7 +189,7 @@ const loadPosts = async (options = {}) => {
 
 // 监听 WebSocket 实时更新 (原生 WebSocket)
 const setupSocket = () => {
-  socket = new WebSocket('ws://localhost:8080/ws/forum')
+  socket = new WebSocket(`${WS_BASE_URL}/ws/forum`)
 
   socket.onmessage = (event) => {
     try {

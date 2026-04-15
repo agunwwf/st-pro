@@ -15,9 +15,10 @@ export function resolveMediaUrl(path) {
   const p = path.trim()
   if (!p) return ''
   if (/^https?:\/\//i.test(p)) return p
+  const defaultOrigin = typeof window !== 'undefined' ? window.location.origin : ''
   const base = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE)
     ? String(import.meta.env.VITE_API_BASE).replace(/\/$/, '')
-    : 'http://localhost:8080'
+    : defaultOrigin
   return `${base}${p.startsWith('/') ? p : `/${p}`}`
 }
 

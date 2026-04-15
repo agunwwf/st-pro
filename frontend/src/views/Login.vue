@@ -42,7 +42,7 @@ import { ref, reactive } from 'vue'
 import { User, Lock } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import axios from 'axios'
+import request from '@/utils/request'
 
 const router = useRouter()
 const isLogin = ref(true)
@@ -61,9 +61,7 @@ const handleAuth = async () => {
   loading.value = true
   try {
     const url = isLogin.value ? '/api/user/login' : '/api/user/register'
-    const fullUrl = `http://localhost:8080${url}`
-
-    const res = await axios.post(fullUrl, form)
+    const res = await request.post(url, form)
 
     if (res.data.code === 200) {
       if (isLogin.value) {
