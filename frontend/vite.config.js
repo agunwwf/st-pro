@@ -26,7 +26,13 @@ export default defineConfig({
         target: 'ws://localhost:8080',
         ws: true,
         changeOrigin: true
-      }
+      },
+      // 本地开发：iframe 为 /st/...，须与本机 Streamlit 的 --server.baseUrlPath=st 一致，否则静态资源会 404
+      '/st': {
+        target: 'http://localhost:8501',
+        changeOrigin: true,
+        ws: true,
+      },
     }
   }
 })

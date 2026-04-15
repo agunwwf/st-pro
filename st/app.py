@@ -1,7 +1,10 @@
-"""Streamlit unified entry for local development.
+r"""Streamlit unified entry for local development.
 
 Usage:
-  streamlit run D:\testttttt\st\app.py --server.port 8501
+  cd st
+  streamlit run app.py --server.port 8501 --server.baseUrlPath=st --server.enableCORS=false --server.enableXsrfProtection=false
+
+与 Vue 开发服（Vite）同源嵌入 /st/ 时，必须带 baseUrlPath=st，否则 iframe 内资源路径会错乱。
 """
 
 import streamlit as st

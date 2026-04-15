@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Optional
 
-from st.config.step_specs import get_step_spec
+from config.step_specs import get_step_spec
 
 
 @dataclass(frozen=True)

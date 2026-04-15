@@ -2,23 +2,38 @@
 from openai import OpenAI
 import os
 
+# 未配置密钥时不应在 import 阶段抛错，否则 Streamlit 整站无法启动
+_client: OpenAI | None = None
+_cached_key: str | None = None
 
-# 从环境变量中获取密钥：os.getenv("变量名")，变量名建议大写，比如DEEPSEEK_API_KEY
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 
-# 判空：如果没获取到环境变量，提示错误（避免运行时崩溃）
-if not DEEPSEEK_API_KEY:
-    raise ValueError("请先设置 DEEPSEEK_API_KEY 环境变量！")
+def _get_client() -> OpenAI | None:
+    global _client, _cached_key
+    key = (os.getenv("DEEPSEEK_API_KEY") or "").strip()
+    if not key:
+        _client = None
+        _cached_key = None
+        return None
+    if _client is not None and _cached_key == key:
+        return _client
+    _client = OpenAI(api_key=key, base_url="https://api.deepseek.com")
+    _cached_key = key
+    return _client
 
-# 创建DeepSeek客户端并导出
-client = OpenAI(
-    api_key=DEEPSEEK_API_KEY,
-    base_url="https://api.deepseek.com"
-)
 
-# AI助教功能函数
+# 兼容旧代码 `from utils.api_deepseek import client`（多数文件未实际使用）
+client = None
+
+
 def ask_ai_assistant(question, context=""):
     """向AI助教提问"""
+    c = _get_client()
+    if c is None:
+        return (
+            "未配置 DEEPSEEK_API_KEY 环境变量，无法调用 AI 助教。"
+            "请在启动 Streamlit 的终端中设置该变量后再试；"
+            "不调用 AI 时仍可正常浏览其它演示内容。"
+        )
     try:
         system_prompt = f"""
         你是一个友好的机器学习助教，专门教授机器学习知识。
@@ -28,14 +43,14 @@ def ask_ai_assistant(question, context=""):
         回答字数控制在500字以内。
         """
 
-        response = client.chat.completions.create(
+        response = c.chat.completions.create(
             model="deepseek-chat",
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": question}
+                {"role": "user", "content": question},
             ],
             temperature=0.7,
-            max_tokens=500
+            max_tokens=500,
         )
 
         return response.choices[0].message.content
