@@ -1,0 +1,7 @@
+# 使用方法：复制本文件为同目录下的 application-local.yml，把下面的密钥改成你的真实值。
+# application-local.yml 已在仓库 .gitignore 中，不会被提交。
+
+spring:
+  ai:
+    openai:
+      api-key: $env:DEEPSEEK_API_KEY="sk-f028a690bdc8491a82e100713eb3275e"
